@@ -1,7 +1,11 @@
-# LaunchLine
+# LaunchLine (Rust)
 
-[![CI](https://github.com/mikejhill/launchline/actions/workflows/ci.yml/badge.svg)](https://github.com/mikejhill/launchline/actions/workflows/ci.yml)
-[![Release](https://github.com/mikejhill/launchline/actions/workflows/release.yml/badge.svg)](https://github.com/mikejhill/launchline/actions/workflows/release.yml)
+[![CI](https://github.com/mikejhill/launchline-rust/actions/workflows/ci.yml/badge.svg)](https://github.com/mikejhill/launchline-rust/actions/workflows/ci.yml)
+[![Release](https://github.com/mikejhill/launchline-rust/actions/workflows/release.yml/badge.svg)](https://github.com/mikejhill/launchline-rust/actions/workflows/release.yml)
+
+> **Rust rewrite of [LaunchLine](https://github.com/mikejhill/launchline)** —
+> same features, ~10× faster startup (~14ms vs ~150ms). See the
+> [Python version](https://github.com/mikejhill/launchline) for the original.
 
 A lightweight terminal launcher for interactive CLI tools. Define your frequently
 used commands in a TOML config file, then pick them from a fuzzy-searchable menu
@@ -45,8 +49,8 @@ somewhere on your `PATH`.
 Requires [Rust](https://rustup.rs/) 1.85 or later.
 
 ```sh
-git clone https://github.com/mikejhill/launchline.git
-cd launchline
+git clone https://github.com/mikejhill/launchline-rust.git
+cd launchline-rust
 cargo build --release
 # Binary is at target/release/launchline (or launchline.exe on Windows)
 ```
@@ -54,7 +58,7 @@ cargo build --release
 ### Install with Cargo
 
 ```sh
-cargo install --git https://github.com/mikejhill/launchline.git
+cargo install --git https://github.com/mikejhill/launchline-rust.git
 ```
 
 ### Install with pip
@@ -207,3 +211,9 @@ maximum performance (~14ms startup, <1MB binary).
 ## License
 
 MIT
+
+## See Also
+
+- **[LaunchLine (Python)](https://github.com/mikejhill/launchline)** — the
+  original Python version. Installable via `pip install launchline`.
+  Same config format and features.

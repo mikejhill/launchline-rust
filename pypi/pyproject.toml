@@ -3,7 +3,7 @@ requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
-name = "launchline"
+name = "launchline-rust"
 version = "0.3.0"
 description = "A lightweight launcher for interactive CLI tools."
 readme = "README.md"
@@ -22,9 +22,9 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/mikejhill/launchline"
-Repository = "https://github.com/mikejhill/launchline"
-Issues = "https://github.com/mikejhill/launchline/issues"
+Homepage = "https://github.com/mikejhill/launchline-rust"
+Repository = "https://github.com/mikejhill/launchline-rust"
+Issues = "https://github.com/mikejhill/launchline-rust/issues"
 
 [project.scripts]
 launchline = "launchline:main"

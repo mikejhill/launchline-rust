@@ -14,7 +14,7 @@ import zipfile
 from importlib.metadata import version
 from pathlib import Path
 
-_GITHUB_REPO = "mikejhill/launchline"
+_GITHUB_REPO = "mikejhill/launchline-rust"
 
 _PLATFORM_MAP: dict[tuple[str, str], str] = {
     ("Linux", "x86_64"): "launchline-linux-x64",
