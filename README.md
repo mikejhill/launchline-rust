@@ -2,8 +2,6 @@
 
 [![CI](https://github.com/mikejhill/launchline/actions/workflows/ci.yml/badge.svg)](https://github.com/mikejhill/launchline/actions/workflows/ci.yml)
 [![Release](https://github.com/mikejhill/launchline/actions/workflows/release.yml/badge.svg)](https://github.com/mikejhill/launchline/actions/workflows/release.yml)
-[![PyPI](https://img.shields.io/pypi/v/launchline)](https://pypi.org/project/launchline/)
-[![Python](https://img.shields.io/pypi/pyversions/launchline)](https://pypi.org/project/launchline/)
 
 A lightweight terminal launcher for interactive CLI tools. Define your frequently
 used commands in a TOML config file, then pick them from a fuzzy-searchable menu
@@ -24,9 +22,11 @@ instead.
 - **Numbered shortcuts** — press a digit to launch directly
 - **Per-entry environment and working directory** — set once, forget forever
 - **Auto-restart or exit** — configurable behavior after a tool exits
-- **Zero runtime dependencies** — pure Python 3.12+, nothing to install beyond itself
+- **Near-instant startup** — native binary, ~14ms cold start
+- **Single binary** — no runtime dependencies, nothing extra to install
 - **Auto-generated starter config** — creates `~/.config/launchline/config.toml`
   on first run if no config exists
+- **Cross-platform** — pre-built binaries for Windows, macOS, and Linux (x64 & ARM64)
 
 |           Fuzzy search            |         Arrow-key navigation          |
 | :-------------------------------: | :-----------------------------------: |
@@ -34,33 +34,35 @@ instead.
 
 ## Installation
 
-### From PyPI (recommended)
+### Download a binary (recommended)
+
+Grab the latest release for your platform from
+[GitHub Releases](https://github.com/mikejhill/launchline/releases) and place it
+somewhere on your `PATH`.
+
+### Build from source
+
+Requires [Rust](https://rustup.rs/) 1.85 or later.
 
 ```sh
-uv tool install launchline
+git clone https://github.com/mikejhill/launchline.git
+cd launchline
+cargo build --release
+# Binary is at target/release/launchline (or launchline.exe on Windows)
 ```
 
-Or with pip:
+### Install with Cargo
+
+```sh
+cargo install --git https://github.com/mikejhill/launchline.git
+```
+
+### Install with pip
+
+A thin Python wrapper downloads the correct native binary for your platform:
 
 ```sh
 pip install launchline
-```
-
-### From source
-
-```sh
-git clone https://github.com/mikejhill/launchline.git
-cd launchline
-uv tool install .
-```
-
-### Run without installing
-
-```sh
-git clone https://github.com/mikejhill/launchline.git
-cd launchline
-uv sync --group dev
-uv run launchline
 ```
 
 ## Quick Start
@@ -166,7 +168,8 @@ env = { TERM = "xterm-256color" }
 ## Windows Terminal Integration
 
 Add LaunchLine as a Windows Terminal profile to use it as your default launcher.
-The package bundles an icon that you can reference via `launchline --icon-path`:
+The `--icon-path` flag prints the path to the bundled icon (place the `assets/`
+directory next to the `launchline` binary):
 
 ```jsonc
 // In your Windows Terminal settings.json → profiles.list
@@ -175,7 +178,7 @@ The package bundles an icon that you can reference via `launchline --icon-path`:
   "commandline": "launchline",
   "startingDirectory": "%USERPROFILE%",
   // Run: launchline --icon-path
-  "icon": "C:/Users/you/.local/lib/.../launchline/assets/launchline.ico"
+  "icon": "C:/path/to/launchline/assets/launchline.ico"
 }
 ```
 
@@ -183,12 +186,23 @@ Set it as the default profile to see the launcher every time you open a terminal
 
 ## Development
 
+Requires [Rust](https://rustup.rs/) 1.85 or later.
+
 ```sh
-uv sync --group dev
-uv run pytest
-uv run ruff check .
-uv run mypy src
+cargo build            # debug build
+cargo test             # run tests
+cargo fmt --check      # formatting check
+cargo clippy -- -D warnings  # lint
 ```
+
+### Release build (optimized)
+
+```sh
+cargo build --release
+```
+
+The release profile enables LTO, single codegen unit, and symbol stripping for
+maximum performance (~14ms startup, <1MB binary).
 
 ## License
 

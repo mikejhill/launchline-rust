@@ -12,8 +12,10 @@ permissions:
   contents: write
 
 jobs:
-  release:
+  determine-version:
     runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.semrel.outputs.version }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -31,51 +33,97 @@ jobs:
       - name: Require new version
         if: steps.semrel.outputs.version == ''
         run: |
-          echo "::error::No new version to release. Ensure there are unreleased commits with conventional commit messages."
+          echo "::error::No new version to release."
           exit 1
 
-      - name: Create local tag
-        run: git tag "v${{ steps.semrel.outputs.version }}"
+  build-binaries:
+    needs: determine-version
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            artifact: launchline-linux-x64
+          - os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            artifact: launchline-linux-arm64
+          - os: windows-latest
+            target: x86_64-pc-windows-msvc
+            artifact: launchline-windows-x64
+          - os: windows-latest
+            target: aarch64-pc-windows-msvc
+            artifact: launchline-windows-arm64
+          - os: macos-latest
+            target: x86_64-apple-darwin
+            artifact: launchline-macos-x64
+          - os: macos-latest
+            target: aarch64-apple-darwin
+            artifact: launchline-macos-arm64
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
 
-      - uses: astral-sh/setup-uv@v6
-      - run: uv sync --group dev
-      - run: uv run pytest
+      - name: Install cross-compilation tools (Linux ARM64)
+        if: matrix.target == 'aarch64-unknown-linux-gnu'
+        run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
 
-      - name: Rewrite README image paths for PyPI
-        run: |
-          sed -i "s|(docs/|(https://raw.githubusercontent.com/${{ github.repository }}/v${{ steps.semrel.outputs.version }}/docs/|g" README.md
-
-      - run: uv build
+      - name: Build release binary
+        run: cargo build --release --target ${{ matrix.target }}
         env:
-          SETUPTOOLS_SCM_PRETEND_VERSION: ${{ steps.semrel.outputs.version }}
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+
+      - name: Package binary (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          cd target/${{ matrix.target }}/release
+          tar czf ../../../${{ matrix.artifact }}.tar.gz launchline
+          cd ../../..
+
+      - name: Package binary (Windows)
+        if: runner.os == 'Windows'
+        run: |
+          cd target/${{ matrix.target }}/release
+          Compress-Archive -Path launchline.exe -DestinationPath ../../../${{ matrix.artifact }}.zip
+          cd ../../..
 
       - uses: actions/upload-artifact@v4
         with:
-          name: dist
-          path: dist/
+          name: ${{ matrix.artifact }}
+          path: |
+            ${{ matrix.artifact }}.tar.gz
+            ${{ matrix.artifact }}.zip
 
-      - name: Push tag
-        run: git push origin "v${{ steps.semrel.outputs.version }}"
+  release:
+    needs: [determine-version, build-binaries]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Create and push tag
+        run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git tag "v${{ needs.determine-version.outputs.version }}"
+          git push origin "v${{ needs.determine-version.outputs.version }}"
+
+      - uses: actions/download-artifact@v4
+        with:
+          path: artifacts/
+
+      - name: Collect release files
+        run: |
+          mkdir -p release-files
+          find artifacts/ -type f \( -name "*.tar.gz" -o -name "*.zip" \) -exec cp {} release-files/ \;
+          ls -la release-files/
 
       - name: Create GitHub Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: "v${{ steps.semrel.outputs.version }}"
+          tag_name: "v${{ needs.determine-version.outputs.version }}"
           generate_release_notes: true
-          files: |
-            dist/*.tar.gz
-            dist/*.whl
-
-  pypi:
-    needs: release
-    runs-on: ubuntu-latest
-    environment: pypi
-    permissions:
-      id-token: write
-    steps:
-      - uses: actions/download-artifact@v4
-        with:
-          name: dist
-          path: dist/
-
-      - uses: pypa/gh-action-pypi-publish@release/v1
+          files: release-files/*

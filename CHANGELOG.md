@@ -7,16 +7,24 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
-### Removed
-
-- Reverted array syntax for `command` config key; `command` is string-only,
-  use `args` for arguments
-
 ### Changed
 
-- Improved test naming to follow `[unit]_[scenario]_[expectedResult]` pattern
-- Added diagnostic failure messages to all test assertions
-- Release workflow now supports `force-patch` input for non-bumping commits
+- **Rewritten from Python to Rust** for near-instant startup (~14ms vs ~150ms).
+  The TOML config format is fully compatible — existing config files work unchanged.
+- Pre-built binaries for 6 platforms: Windows (x64, ARM64), macOS (x64, ARM64),
+  Linux (x64, ARM64)
+- Release workflow now produces GitHub Release binaries instead of PyPI packages
+
+### Added
+
+- PyPI binary wrapper — `pip install launchline` downloads the correct native
+  binary for your platform
+
+### Removed
+
+- Python runtime dependency — LaunchLine is now a single static binary
+- Reverted array syntax for `command` config key; `command` is string-only,
+  use `args` for arguments
 
 ## [0.2.0] - 2026-03-30
 
@@ -43,10 +51,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Auto-generated starter config on first run
 - Configurable `show_exit` setting to show/hide Exit entry
 - Windows Terminal integration support
-- Kitty keyboard protocol support
+- Cross-platform keyboard handling via crossterm
 - `ghost_text` feature flag for autocomplete hints on the prompt line
 - `numeric_trigger` feature flag for immediate digit-key launching
 - Bundled icon accessible via `launchline --icon-path` for Windows Terminal profiles
 - Cross-platform support (Windows, macOS, Linux)
 - LaunchLine icon (SVG, ICO, PNG) in `assets/`
-- PyPI publishing via GitHub Actions with OIDC trusted publishers
+- PyPI publishing via GitHub Actions

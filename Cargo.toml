@@ -1,0 +1,30 @@
+[package]
+name = "launchline"
+version = "0.3.0"
+edition = "2024"
+description = "A lightweight terminal launcher for interactive CLI tools."
+license = "MIT"
+readme = "README.md"
+homepage = "https://github.com/mikejhill/launchline"
+repository = "https://github.com/mikejhill/launchline"
+keywords = ["terminal", "launcher", "cli", "menu"]
+categories = ["command-line-utilities"]
+
+[dependencies]
+crossterm = "0.28"
+toml = "0.8"
+serde = { version = "1", features = ["derive"] }
+dirs = "6"
+clap = { version = "4", features = ["derive"] }
+log = "0.4"
+env_logger = "0.11"
+
+[profile.release]
+lto = true
+codegen-units = 1
+strip = true
+panic = "abort"
+opt-level = 3
+
+[profile.dev]
+opt-level = 1
