@@ -41,8 +41,11 @@ class NativeLauncher:
         )
         if not base.is_absolute():
             if os.name == "nt":
-                base = Path(
-                    os.environ.get("LOCALAPPDATA", Path.home() / "AppData" / "Local")
+                local_appdata = os.environ.get("LOCALAPPDATA")
+                base = (
+                    Path(local_appdata)
+                    if local_appdata
+                    else Path.home() / "AppData" / "Local"
                 )
             else:
                 base = Path.home() / ".cache"

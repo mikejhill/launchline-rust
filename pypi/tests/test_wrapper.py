@@ -9,6 +9,7 @@ import stat
 import tarfile
 import zipfile
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -30,18 +31,22 @@ from launchline._wrapper import (
 class TestGetCacheDir:
     """Tests for cache directory resolution."""
 
-    @patch("launchline._wrapper.os.name", "nt")
+    @patch("launchline._wrapper.os", SimpleNamespace(name="nt", environ=os.environ))
     @patch.dict(
         "os.environ", {"LOCALAPPDATA": r"C:\Users\Test\AppData\Local"}, clear=False
     )
     def test_windows_uses_localappdata(self) -> None:
-        result = _get_cache_dir()
+        with patch(
+            "launchline._wrapper.Path.home",
+            side_effect=AssertionError("LOCALAPPDATA must avoid the home fallback"),
+        ):
+            result = _get_cache_dir()
         assert result == Path(r"C:\Users\Test\AppData\Local") / "launchline" / "bin", (
             f"Expected LOCALAPPDATA-based path on Windows, got {result}"
         )
 
     @pytest.mark.skipif(os.name == "nt", reason="PosixPath unavailable on Windows")
-    @patch("launchline._wrapper.os.name", "posix")
+    @patch("launchline._wrapper.os", SimpleNamespace(name="posix", environ=os.environ))
     @patch.dict("os.environ", {"XDG_CACHE_HOME": "/custom/cache"}, clear=False)
     def test_posix_respects_xdg_cache_home(self) -> None:
         result = _get_cache_dir()
@@ -50,7 +55,7 @@ class TestGetCacheDir:
         )
 
     @pytest.mark.skipif(os.name == "nt", reason="PosixPath unavailable on Windows")
-    @patch("launchline._wrapper.os.name", "posix")
+    @patch("launchline._wrapper.os", SimpleNamespace(name="posix", environ=os.environ))
     @patch.dict("os.environ", {}, clear=True)
     @patch("launchline._wrapper.Path.home", return_value=Path("/home/testuser"))
     def test_posix_falls_back_to_dot_cache(self, _mock_home: MagicMock) -> None:

@@ -1,4 +1,7 @@
-# Validation evidence - 2026-10-22
+# Local validation evidence - 2026-10-22
+
+This is the pre-push local snapshot. See [hosted CI follow-up](hosted-ci.md) for
+subsequent draft PR checks, fixes, and exact-head validation.
 
 Host: MHILL-LAPTOP, Windows x64; CPython 3.12.13, Rust 1.99.1. Linux checks used
 Ubuntu WSL CPython 3.12.3 and a separate venv/cache/coverage file. Work proceeded

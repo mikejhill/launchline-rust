@@ -147,9 +147,16 @@ fn real_child_receives_literal_args_environment_cwd_and_exit() {
         numeric_trigger: true,
     };
     assert_eq!(EntryRunner::new(&config).launch(&entry).unwrap(), 7);
+    let observed = fs::read_to_string(output).unwrap();
+    let (arguments_and_environment, actual_directory) = observed.rsplit_once('|').unwrap();
     assert_eq!(
-        fs::read_to_string(output).unwrap(),
-        format!("a b\n&literal\n猫|a b & literal|{}", fixture.0.display())
+        arguments_and_environment,
+        "a b\n&literal\n\u{732b}|a b & literal"
+    );
+    assert_eq!(
+        fs::canonicalize(actual_directory).unwrap(),
+        fs::canonicalize(&fixture.0).unwrap(),
+        "The child must execute in the configured directory, including OS path aliases"
     );
     assert!(
         std::env::var_os("LL_CONTRACT").is_none(),
