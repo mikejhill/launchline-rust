@@ -13,7 +13,7 @@ pub struct Args {
     pub config: Option<PathBuf>,
 
     /// Logging verbosity (default: WARNING).
-    #[arg(long = "log-level", default_value = "WARNING")]
+    #[arg(long = "log-level", default_value = "WARNING", value_parser = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"])]
     pub log_level: String,
 
     /// Print the path to the bundled icon and exit.
@@ -23,6 +23,10 @@ pub struct Args {
     /// Print the path to the active config file and exit.
     #[arg(long = "config-path")]
     pub config_path: bool,
+
+    /// Validate configuration without launching tools.
+    #[arg(long = "check-config")]
+    pub check_config: bool,
 }
 
 impl Args {

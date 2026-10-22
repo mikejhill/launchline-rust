@@ -1,0 +1,77 @@
+[
+  {
+    "case": "defaults",
+    "python": 0,
+    "rust": 0
+  },
+  {
+    "case": "settings",
+    "python": 0,
+    "rust": 0
+  },
+  {
+    "case": "boolean-string",
+    "python": 1,
+    "rust": 1
+  },
+  {
+    "case": "title-number",
+    "python": 1,
+    "rust": 1
+  },
+  {
+    "case": "array-command",
+    "python": 1,
+    "rust": 1
+  },
+  {
+    "case": "argument-number",
+    "python": 1,
+    "rust": 1
+  },
+  {
+    "case": "environment-number",
+    "python": 1,
+    "rust": 1
+  },
+  {
+    "case": "control-name",
+    "python": 1,
+    "rust": 1
+  },
+  {
+    "case": "bad-env-key",
+    "python": 1,
+    "rust": 1
+  },
+  {
+    "case": "empty-entries",
+    "python": 1,
+    "rust": 1
+  },
+  {
+    "case": "wrong-settings-table",
+    "python": 1,
+    "rust": 1
+  },
+  {
+    "case": "valid-argv",
+    "python": 0,
+    "rust": 0
+  },
+  {
+    "case": "bad-on-exit",
+    "python": 1,
+    "rust": 1
+  },
+  {
+    "case": "missing-name",
+    "python": 1,
+    "rust": 1
+  },
+  {
+    "case": "unicode-name",
+    "python": 0,
+    "rust": 0
+  }
+]

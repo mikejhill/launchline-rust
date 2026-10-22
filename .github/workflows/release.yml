@@ -1,129 +1,328 @@
 name: Release
-
-on:
+'on':
+  push:
+    branches:
+    - main
   workflow_dispatch:
     inputs:
       force-patch:
-        description: "Force a patch version bump (use when only docs/test/chore commits exist)"
+        description: Force patch bump when no releasable commits exist
         type: boolean
         default: false
-
 permissions:
-  contents: write
-
+  contents: read
+concurrency:
+  group: release
+  cancel-in-progress: false
 jobs:
-  determine-version:
+  target:
+    if: github.ref == 'refs/heads/main' && github.actor == 'mikejhill' && github.triggering_actor == 'mikejhill'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     outputs:
       version: ${{ steps.semrel.outputs.version }}
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+        fetch-depth: 0
+        ref: ${{ github.sha }}
+    - name: Download checksum-pinned semantic-release CLI
+      shell: bash
+      run: "set -euo pipefail\ndest=\"$RUNNER_TEMP/semantic-release-v2.31.0\"\ncurl --fail --silent --show-error --location\
+        \ --proto '=https' --tlsv1.2 \\\n  https://github.com/go-semantic-release/semantic-release/releases/download/v2.31.0/semantic-release_v2.31.0_linux_amd64\
+        \ \\\n  --output \"$dest\"\nprintf '%s  %s\\n' 'b8f518b1aeb1d1742f4e6e91a179b707cea4309a64fe3854f465bf724f04f6d3'\
+        \ \"$dest\" | sha256sum --check --strict\nchmod 0755 \"$dest\"\n"
+    - name: Preload verified runtime plugins
+      run: python3 scripts/prepare_semrel.py
+    - name: Determine version without publishing
+      id: semrel
+      shell: bash
+      env:
+        GITHUB_TOKEN: ${{ github.token }}
+        FORCE_PATCH: ${{ inputs.force-patch || false }}
+      run: 'set -euo pipefail
 
-      - name: Determine next version
-        id: semrel
-        uses: go-semantic-release/action@v1
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          allow-initial-development-versions: true
-          force-bump-patch-version: ${{ inputs.force-patch }}
-          dry: true
+        args=(--dry --allow-initial-development-versions --changelog release-changelog.md --allow-no-changes --plugin-resolver-disable-batch-prefetch)
 
-      - name: Require new version
-        if: steps.semrel.outputs.version == ''
-        run: |
-          echo "::error::No new version to release."
-          exit 1
+        if [ "$FORCE_PATCH" = true ]; then args+=(--force-bump-patch-version); fi
 
-  build-binaries:
-    needs: determine-version
+        "$RUNNER_TEMP/semantic-release-v2.31.0" "${args[@]}"
+
+        python3 scripts/release_version.py
+
+        '
+    name: Target
+  ci:
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 20
     strategy:
+      fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            artifact: launchline-linux-x64
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-            artifact: launchline-linux-arm64
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            artifact: launchline-windows-x64
-          - os: windows-latest
-            target: aarch64-pc-windows-msvc
-            artifact: launchline-windows-arm64
-          - os: macos-latest
-            target: x86_64-apple-darwin
-            artifact: launchline-macos-x64
-          - os: macos-latest
-            target: aarch64-apple-darwin
-            artifact: launchline-macos-arm64
+        - os: ubuntu-latest
+          target: x86_64-unknown-linux-gnu
+          artifact: launchline-linux-x64
+        - os: windows-latest
+          target: x86_64-pc-windows-msvc
+          artifact: launchline-windows-x64
+        - os: macos-latest
+          target: aarch64-apple-darwin
+          artifact: launchline-macos-arm64
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+        ref: ${{ github.sha }}
+    - name: Install pinned Rust toolchain
+      run: rustup toolchain install 1.99.1 --profile minimal --component rustfmt --component clippy
+    - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e
+    - run: cargo fmt --check
+    - run: cargo clippy --locked --all-targets -- -D warnings
+    - run: cargo test --locked
+    - run: cargo build --locked --release
+    - name: Build archive target
+      shell: bash
+      env:
+        TARGET: ${{ matrix.target }}
+        ARTIFACT: ${{ matrix.artifact }}
+      run: cargo build --locked --release --target "$TARGET"
+    - name: Verify native archive
+      env:
+        TARGET: ${{ matrix.target }}
+        ARTIFACT: ${{ matrix.artifact }}
+      run: uv run --locked --project pypi python scripts/package_binary.py
+    - name: Build wrapper distributions
+      run: uv build --project pypi --out-dir pypi/dist
+    - name: Verify installed wrapper with actual archive
+      env:
+        TARGET: ${{ matrix.target }}
+        ARTIFACT: ${{ matrix.artifact }}
+      run: uv run --locked --project pypi python scripts/wrapper_smoke.py
+    - name: Format and lint wrapper and tooling
+      run: |
+        uv run --locked --project pypi ruff format --check pypi/src pypi/tests scripts
+        uv run --locked --project pypi ruff check pypi/src pypi/tests scripts
+    - name: Check Python wrapper source
+      run: uv run --locked --project pypi ty check pypi/src
+    - run: cargo package --locked --allow-dirty
+    - run: uv run --locked --project pypi --group dev pytest pypi/tests --junitxml=junit.xml
+    - run: uv run --project pypi python scripts/mutation_check.py rust
+      if: matrix.os == 'windows-latest'
+    - name: Wrapper test results
+      if: always()
+      uses: mikepenz/action-junit-report@6ef3fdcfcd5f0b5d14df3e659ef19b8c6820f93d
+      with:
+        report_paths: junit.xml
+        annotate_only: true
+        check_annotations: false
+        require_tests: true
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      if: always()
+      with:
+        name: evidence-${{ matrix.os }}
+        path: junit.xml
+        if-no-files-found: error
+    needs: target
+    if: needs.target.outputs.version != ''
+    name: Ci
+  build:
+    needs:
+    - target
+    - ci
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+        - os: ubuntu-latest
+          target: x86_64-unknown-linux-gnu
+          artifact: launchline-linux-x64
+        - os: ubuntu-24.04-arm
+          target: aarch64-unknown-linux-gnu
+          artifact: launchline-linux-arm64
+        - os: windows-latest
+          target: x86_64-pc-windows-msvc
+          artifact: launchline-windows-x64
+        - os: windows-11-arm
+          target: aarch64-pc-windows-msvc
+          artifact: launchline-windows-arm64
+        - os: macos-15-intel
+          target: x86_64-apple-darwin
+          artifact: launchline-macos-x64
+        - os: macos-latest
+          target: aarch64-apple-darwin
+          artifact: launchline-macos-arm64
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+        ref: ${{ github.sha }}
+    - name: Install pinned Rust target
+      shell: bash
+      env:
+        TARGET: ${{ matrix.target }}
+      run: 'rustup toolchain install 1.99.1 --profile minimal --component rustfmt --component clippy
 
-      - name: Install cross-compilation tools (Linux ARM64)
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
-        run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
+        rustup target add "$TARGET" --toolchain 1.99.1'
+    - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e
+    - name: Set release metadata and build on native target
+      shell: bash
+      env:
+        VERSION: ${{ needs.target.outputs.version }}
+        TARGET: ${{ matrix.target }}
+      run: '[[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
 
-      - name: Build release binary
-        run: cargo build --release --target ${{ matrix.target }}
-        env:
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+        uv run --project pypi python scripts/set_release_version.py
 
-      - name: Package binary (Unix)
-        if: runner.os != 'Windows'
-        run: |
-          cd target/${{ matrix.target }}/release
-          tar czf ../../../${{ matrix.artifact }}.tar.gz launchline
-          cd ../../..
+        cargo build --release --locked --target "$TARGET"
 
-      - name: Package binary (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          cd target/${{ matrix.target }}/release
-          Compress-Archive -Path launchline.exe -DestinationPath ../../../${{ matrix.artifact }}.zip
-          cd ../../..
+        cargo test --locked --target "$TARGET"
 
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact }}
-          path: |
-            ${{ matrix.artifact }}.tar.gz
-            ${{ matrix.artifact }}.zip
-
-  release:
-    needs: [determine-version, build-binaries]
+        '
+    - name: Package tested binary and icon
+      shell: bash
+      env:
+        TARGET: ${{ matrix.target }}
+        ARTIFACT: ${{ matrix.artifact }}
+      run: uv run --project pypi python scripts/package_binary.py
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      with:
+        name: trusted-release-${{ matrix.target }}
+        path: release/*
+        if-no-files-found: error
+        retention-days: 7
+    name: Build
+  github-release:
+    if: github.ref == 'refs/heads/main' && github.actor == 'mikejhill' && github.triggering_actor == 'mikejhill' && needs.build.result
+      == 'success'
+    needs:
+    - target
+    - build
+    - attest
+    - build-wrapper
     runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: write # Create immutable refs and upload tested release artifacts.
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+    - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+      with:
+        pattern: trusted-release-*
+        merge-multiple: true
+        path: release
+    - name: Publish same-run artifacts from trusted merge
+      run: "printf 'Built from reviewed main commit %s\\n' \"$GITHUB_SHA\" > release/release-notes.md\n(cd release && sha256sum\
+        \ *.tar.gz *.zip *.whl > SHA256SUMS)\n# The approved immutable-v* ruleset must already prohibit tag updates/deletion.\n\
+        ancestor=$(gh api \"repos/$GITHUB_REPOSITORY/compare/$GITHUB_SHA...main\" --jq .merge_base_commit.sha)\ntest \"$ancestor\"\
+        \ = \"$GITHUB_SHA\" || { echo 'Release commit is no longer on main.' >&2; exit 1; }\npython3 - <<'PY'\nimport json,os,pathlib,re\n\
+        assert re.fullmatch(r'v[0-9]+\\.[0-9]+\\.[0-9]+',os.environ['TAG'])\nassert re.fullmatch(r'[0-9a-f]{40}',os.environ['GITHUB_SHA'])\n\
+        pathlib.Path('release-ref.json').write_text(json.dumps({'ref':'refs/tags/'+os.environ['TAG'],'sha':os.environ['GITHUB_SHA']}))\n\
+        PY\n# Ref creation is atomic: if another process created it first, accept only the same commit.\nif ! gh api --method\
+        \ POST \"repos/$GITHUB_REPOSITORY/git/refs\" --input release-ref.json >/dev/null 2>tag-create-error.txt; then\n  actual=$(gh\
+        \ api \"repos/$GITHUB_REPOSITORY/commits/$TAG\" --jq .sha)\n  test \"$actual\" = \"$GITHUB_SHA\" || { echo 'Tag creation\
+        \ failed or a conflicting tag exists.' >&2; exit 1; }\nfi\nactual=$(gh api \"repos/$GITHUB_REPOSITORY/commits/$TAG\"\
+        \ --jq .sha)\ntest \"$actual\" = \"$GITHUB_SHA\" || { echo 'Tag does not match the trusted merge.' >&2; exit 1; }\n\
+        if gh release view \"$TAG\" --repo \"$GITHUB_REPOSITORY\" >/dev/null 2>&1; then\n  :\nelse\n  gh release create \"\
+        $TAG\" --repo \"$GITHUB_REPOSITORY\" --verify-tag --title \"$TAG\" --generate-notes --notes-file release/release-notes.md\n\
+        fi\ngh release upload \"$TAG\" release/*.tar.gz release/*.zip release/*.whl release/SHA256SUMS --repo \"$GITHUB_REPOSITORY\"\
+        \ --clobber\n"
+      env:
+        GH_TOKEN: ${{ github.token }}
+        TAG: v${{ needs.target.outputs.version }}
+    name: Github Release
+  attest:
+    name: Attest tested artifacts
+    needs:
+    - build
+    - build-wrapper
+    if: github.ref == 'refs/heads/main' && github.actor == 'mikejhill' && github.triggering_actor == 'mikejhill' && needs.build.result
+      == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write # OIDC identity for attestation or trusted PyPI publishing.
+      attestations: write # Record provenance for same-run tested artifacts.
+    steps:
+    - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+      with:
+        path: release
+        pattern: trusted-release-*
+        merge-multiple: true
+    - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
+      with:
+        subject-path: 'release/*.tar.gz
 
-      - name: Create and push tag
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag "v${{ needs.determine-version.outputs.version }}"
-          git push origin "v${{ needs.determine-version.outputs.version }}"
+          release/*.zip
 
-      - uses: actions/download-artifact@v4
-        with:
-          path: artifacts/
+          release/*.whl'
+  build-wrapper:
+    name: Build and verify wrapper distributions
+    needs:
+    - target
+    - ci
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    outputs:
+      artifact-id: ${{ steps.wrapper.outputs.artifact-id }}
+    steps:
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+        ref: ${{ github.sha }}
+    - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e
+      with:
+        python-version: '3.12'
+    - name: Install pinned Rust toolchain
+      run: rustup toolchain install 1.99.1 --profile minimal
+    - name: Set ephemeral release metadata
+      env:
+        VERSION: ${{ needs.target.outputs.version }}
+      run: 'uv run --project pypi python scripts/set_release_version.py
 
-      - name: Collect release files
-        run: |
-          mkdir -p release-files
-          find artifacts/ -type f \( -name "*.tar.gz" -o -name "*.zip" \) -exec cp {} release-files/ \;
-          ls -la release-files/
+        uv lock --project pypi'
+    - name: Build local native archive for installed-wrapper verification
+      shell: bash
+      env:
+        TARGET: x86_64-unknown-linux-gnu
+        ARTIFACT: launchline-linux-x64
+      run: 'cargo build --locked --release --target "$TARGET"
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: "v${{ needs.determine-version.outputs.version }}"
-          generate_release_notes: true
-          files: release-files/*
+        uv run --locked --project pypi python scripts/package_binary.py'
+    - name: Build wrapper distributions
+      run: uv build --project pypi --out-dir pypi/dist
+    - name: Verify installed wrapper and exact release archive
+      env:
+        ARTIFACT: launchline-linux-x64
+      run: uv run --locked --project pypi python scripts/wrapper_smoke.py
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      id: wrapper
+      with:
+        name: trusted-release-wrapper
+        path: pypi/dist/*
+        if-no-files-found: error
+        retention-days: 7
+  pypi:
+    if: github.ref == 'refs/heads/main' && github.actor == 'mikejhill' && github.triggering_actor == 'mikejhill' && needs.github-release.result
+      == 'success'
+    needs:
+    - target
+    - build-wrapper
+    - github-release
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    environment: pypi
+    permissions:
+      id-token: write # OIDC identity for attestation or trusted PyPI publishing.
+    steps:
+    - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+      with:
+        artifact-ids: ${{ needs.build-wrapper.outputs.artifact-id }}
+        path: dist
+    - uses: pypa/gh-action-pypi-publish@7245906fb61fa33a13554f9d5fb856fe61758086
+      with:
+        packages-dir: dist/
+        skip-existing: true
+    name: Publish Rust wrapper to PyPI

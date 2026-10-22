@@ -1,0 +1,69 @@
+{
+  "host": "MHILL-LAPTOP",
+  "date": "2026-10-22",
+  "baseline": {
+    "python": "904ace1",
+    "rust": "109a68b"
+  },
+  "python_windows": {
+    "command": "uv run --locked poe check",
+    "passed": 292,
+    "skipped": 1,
+    "branch_inclusive_coverage_percent": 95.49
+  },
+  "python_linux_wsl": {
+    "command": "uv run --locked poe check (separate Linux venv/cache/coverage)",
+    "passed": 291,
+    "skipped": 2,
+    "branch_inclusive_coverage_percent": 94.14
+  },
+  "rust_windows": {
+    "commands": [
+      "cargo fmt --check",
+      "cargo clippy --locked --all-targets -- -D warnings",
+      "cargo test --locked",
+      "cargo build --locked --release",
+      "cargo package --locked --allow-dirty"
+    ],
+    "unit_passed": 83,
+    "integration_passed": 6,
+    "unix_only_integration_not_run": 1
+  },
+  "wrapper_windows": {
+    "command": "uv run --locked --project pypi pytest pypi/tests",
+    "passed": 37,
+    "skipped": 2
+  },
+  "parity": {
+    "actual_cli_cases": 15,
+    "shared_score_corpus": 405
+  },
+  "mutation": {
+    "python_seeded_killed": 12,
+    "rust_seeded_killed": 12,
+    "survivors": 0,
+    "invalid": 0,
+    "timeouts": 0,
+    "scope": "targeted seeded campaign, not exhaustive"
+  },
+  "workflow_audits": {
+    "actionlint": "1.7.12: no findings",
+    "zizmor": "1.31.1 offline auditor: no findings"
+  },
+  "release_fixture": {
+    "cli": "2.31.0, checksum verified",
+    "version": "0.1.0",
+    "tags_after": [],
+    "remote": null,
+    "production_publish_executed": false
+  },
+  "not_executed": [
+    "hosted CI",
+    "macOS runtime",
+    "ARM runtime",
+    "Rust Linux runtime",
+    "production GitHub provider release",
+    "PyPI trusted publishing",
+    "screen-reader certification"
+  ]
+}

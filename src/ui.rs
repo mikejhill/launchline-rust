@@ -114,8 +114,22 @@ impl<'a> LaunchLineUI<'a> {
             }
 
             // Poll for key events with 50ms timeout
-            if event::poll(Duration::from_millis(50)).unwrap_or(false) {
-                if let Ok(Event::Key(key_event)) = event::read() {
+            let ready = match event::poll(Duration::from_millis(50)) {
+                Ok(ready) => ready,
+                Err(error) => {
+                    log::error!("Terminal input failed: {error}");
+                    return None;
+                }
+            };
+            if ready {
+                let event = match event::read() {
+                    Ok(event) => event,
+                    Err(error) => {
+                        log::error!("Terminal input failed: {error}");
+                        return None;
+                    }
+                };
+                if let Event::Key(key_event) = event {
                     // Only process key press events (not release/repeat)
                     if key_event.kind != KeyEventKind::Press {
                         continue;
@@ -238,7 +252,7 @@ impl<'a> LaunchLineUI<'a> {
 
             KeyCode::Backspace => {
                 if !self.query.is_empty() && self.cursor_pos > 0 {
-                    self.cursor_pos -= 1;
+                    self.cursor_pos = self.previous_character();
                     self.query.remove(self.cursor_pos);
                     self.update_filter();
                 }
@@ -282,14 +296,14 @@ impl<'a> LaunchLineUI<'a> {
 
             KeyCode::Char('b') if ctrl => {
                 if self.cursor_pos > 0 {
-                    self.cursor_pos -= 1;
+                    self.cursor_pos = self.previous_character();
                 }
                 KeyAction::Continue
             }
 
             KeyCode::Char('f') if ctrl => {
                 if self.cursor_pos < self.query.len() {
-                    self.cursor_pos += 1;
+                    self.cursor_pos = self.next_character();
                 }
                 KeyAction::Continue
             }
@@ -307,7 +321,7 @@ impl<'a> LaunchLineUI<'a> {
             KeyCode::Char('h') if ctrl => {
                 // ctrl-h = backspace
                 if !self.query.is_empty() && self.cursor_pos > 0 {
-                    self.cursor_pos -= 1;
+                    self.cursor_pos = self.previous_character();
                     self.query.remove(self.cursor_pos);
                     self.update_filter();
                 }
@@ -362,7 +376,7 @@ impl<'a> LaunchLineUI<'a> {
         }
 
         self.query.insert(self.cursor_pos, ch);
-        self.cursor_pos += 1;
+        self.cursor_pos += ch.len_utf8();
         self.update_filter();
 
         // Auto-launch if exactly one numeric match remains
@@ -377,6 +391,21 @@ impl<'a> LaunchLineUI<'a> {
     }
 
     // -- Word operations ---------------------------------------------------
+
+    fn previous_character(&self) -> usize {
+        self.query[..self.cursor_pos]
+            .char_indices()
+            .next_back()
+            .map_or(0, |(index, _)| index)
+    }
+
+    fn next_character(&self) -> usize {
+        self.cursor_pos
+            + self.query[self.cursor_pos..]
+                .chars()
+                .next()
+                .map_or(0, char::len_utf8)
+    }
 
     fn word_boundary_back(&self) -> usize {
         let bytes = self.query.as_bytes();
@@ -455,7 +484,7 @@ impl<'a> LaunchLineUI<'a> {
                         .map(|s| (s, i))
                 })
                 .collect();
-            scored.sort_by(|a, b| b.0.cmp(&a.0));
+            scored.sort_by_key(|a| std::cmp::Reverse(a.0));
 
             number_matches.extend(scored.iter().map(|&(_, i)| i));
             self.visible = number_matches;
@@ -468,7 +497,7 @@ impl<'a> LaunchLineUI<'a> {
                         .map(|s| (s, i))
                 })
                 .collect();
-            scored.sort_by(|a, b| b.0.cmp(&a.0));
+            scored.sort_by_key(|a| std::cmp::Reverse(a.0));
             self.visible = scored.iter().map(|&(_, i)| i).collect();
 
             self.exit_visible =
@@ -515,7 +544,7 @@ impl<'a> LaunchLineUI<'a> {
         let max_name_len = self
             .all_entries
             .iter()
-            .map(|ne| ne.entry.name.len())
+            .map(|ne| ne.entry.name.chars().count())
             .max()
             .unwrap_or(0)
             .max(4); // "Exit" length
@@ -683,10 +712,15 @@ impl<'a> LaunchLineUI<'a> {
         ));
 
         // Position cursor on prompt line
-        let cursor_col = 2 + self.cursor_pos + 1; // "❯ " is 2 visible chars
+        let cursor_col = 2 + self.query[..self.cursor_pos].chars().count() + 1; // "❯ " is 2 visible chars
         buf.push_str(&format!("\x1b[{prompt_row};{cursor_col}H"));
 
         let mut stdout = io::stdout();
+        if std::env::var_os("NO_COLOR").is_some() {
+            for color in [HEADER_ACCENT, ACTIVE_ACCENT, GRAY, BOLD, WHITE, RESET] {
+                buf = buf.replace(color, "");
+            }
+        }
         let _ = stdout.write_all(buf.as_bytes());
         let _ = stdout.flush();
     }
@@ -734,6 +768,19 @@ enum KeyAction {
 mod tests {
     use super::*;
     use crossterm::event::{KeyCode, KeyEvent, KeyEventKind, KeyEventState, KeyModifiers};
+
+    #[test]
+    fn unicode_editing_preserves_character_boundaries() {
+        let config = named_config(&["猫 café"]);
+        let mut ui = LaunchLineUI::new(&config);
+        ui.reset();
+        ui.on_key(char_key('猫'));
+        ui.on_key(char_key('é'));
+        ui.on_key(ctrl('b'));
+        ui.on_key(plain(KeyCode::Backspace));
+        assert_eq!(ui.query, "é", "Backspace must remove one Unicode scalar");
+        assert_eq!(ui.cursor_pos, 0, "Cursor must remain on UTF-8 boundary");
+    }
 
     // ── Helpers ──────────────────────────────────────────────────────────
 

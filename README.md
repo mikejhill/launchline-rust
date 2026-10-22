@@ -4,7 +4,7 @@
 [![Release](https://github.com/mikejhill/launchline-rust/actions/workflows/release.yml/badge.svg)](https://github.com/mikejhill/launchline-rust/actions/workflows/release.yml)
 
 > **Rust rewrite of [LaunchLine](https://github.com/mikejhill/launchline)** —
-> same features, ~10× faster startup (~14ms vs ~150ms). See the
+> shared configuration and keyboard contract. See the
 > [Python version](https://github.com/mikejhill/launchline) for the original.
 
 A lightweight terminal launcher for interactive CLI tools. Define your frequently
@@ -206,7 +206,7 @@ cargo build --release
 ```
 
 The release profile enables LTO, single codegen unit, and symbol stripping for
-maximum performance (~14ms startup, <1MB binary).
+optimized native execution. Measured scorer results are recorded below.
 
 ## License
 
@@ -216,4 +216,11 @@ MIT
 
 - **[LaunchLine (Python)](https://github.com/mikejhill/launchline)** — the
   original Python version. Installable via `pip install launchline`.
-  Same config format and features.
+  See the compatibility matrix for verified behavior and runtime differences.
+
+## Compatibility and validation
+
+Use `launchline --check-config` to validate configuration without opening the menu.
+Set `NO_COLOR` for a selection marker without ANSI color. See the
+[compatibility matrix](docs/compatibility.md), [reproducible test and performance
+results](docs/validation/report.md), and [release readiness](docs/releasing.md).

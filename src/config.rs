@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 use std::fs;
+use std::io::Write;
 use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
@@ -56,10 +57,10 @@ struct RawSettings {
 struct RawEntry {
     name: Option<String>,
     command: Option<String>,
-    args: Option<toml::Value>,
+    args: Option<Vec<String>>,
     description: Option<String>,
     working_directory: Option<String>,
-    env: Option<toml::Value>,
+    env: Option<HashMap<String, String>>,
 }
 
 // -- Config loader ---------------------------------------------------------
@@ -156,6 +157,7 @@ impl ConfigLoader {
         });
 
         let title = settings.title.unwrap_or_else(|| "LaunchLine".to_string());
+        Self::validate_display(&title)?;
         let on_exit = settings.on_exit.unwrap_or_else(|| "restart".to_string());
 
         if !VALID_ON_EXIT.contains(&on_exit.as_str()) {
@@ -189,24 +191,19 @@ impl ConfigLoader {
                 )));
             }
 
-            let args = match raw_entry.args {
-                None => Vec::new(),
-                Some(toml::Value::Array(arr)) => arr
-                    .into_iter()
-                    .map(|v| v.as_str().unwrap_or_default().to_string())
-                    .collect(),
-                Some(_) => {
-                    return Err(LaunchLineError::Configuration(format!(
-                        "Entry {idx}: 'args' must be a list of strings."
-                    )));
-                }
-            };
+            let args = raw_entry.args.unwrap_or_default();
 
             let description = raw_entry.description.unwrap_or_default();
 
+            if let Some(directory) = &raw_entry.working_directory {
+                Self::validate_display(directory)?;
+            }
             let working_directory = raw_entry.working_directory.and_then(|wd| {
+                if wd.is_empty() {
+                    return None;
+                }
                 let expanded = expand_tilde(Path::new(&wd));
-                if expanded.exists() {
+                if expanded.is_dir() {
                     Some(expanded)
                 } else {
                     log::warn!(
@@ -218,18 +215,19 @@ impl ConfigLoader {
                 }
             });
 
-            let env = match raw_entry.env {
-                None => HashMap::new(),
-                Some(toml::Value::Table(tbl)) => tbl
-                    .into_iter()
-                    .map(|(k, v)| (k, v.as_str().unwrap_or_default().to_string()))
-                    .collect(),
-                Some(_) => {
-                    return Err(LaunchLineError::Configuration(format!(
-                        "Entry {idx}: 'env' must be a table of strings."
-                    )));
-                }
-            };
+            let env = raw_entry.env.unwrap_or_default();
+            for value in [&name, &command, &description] {
+                Self::validate_display(value)?;
+            }
+            if args.iter().any(|arg| arg.contains('\0'))
+                || env.iter().any(|(key, value)| {
+                    key.is_empty() || key.contains(['=', '\0']) || value.contains('\0')
+                })
+            {
+                return Err(LaunchLineError::Configuration(format!(
+                    "Entry {idx}: invalid NUL or environment key."
+                )));
+            }
 
             entries.push(EntryConfig {
                 name,
@@ -252,6 +250,15 @@ impl ConfigLoader {
         })
     }
 
+    fn validate_display(value: &str) -> Result<(), LaunchLineError> {
+        if value.chars().any(char::is_control) {
+            return Err(LaunchLineError::Configuration(
+                "Display values must not contain control characters.".to_string(),
+            ));
+        }
+        Ok(())
+    }
+
     fn create_default() -> Result<PathBuf, LaunchLineError> {
         let path = Self::default_path().ok_or_else(|| {
             LaunchLineError::Configuration("Cannot determine config directory".to_string())
@@ -263,9 +270,23 @@ impl ConfigLoader {
             })?;
         }
 
-        fs::write(&path, STARTER_CONFIG).map_err(|e| {
-            LaunchLineError::Configuration(format!("Cannot write config file: {e}"))
-        })?;
+        match fs::OpenOptions::new()
+            .write(true)
+            .create_new(true)
+            .open(&path)
+        {
+            Ok(mut stream) => stream
+                .write_all(STARTER_CONFIG.as_bytes())
+                .map_err(|error| {
+                    LaunchLineError::Configuration(format!("Cannot write config file: {error}"))
+                })?,
+            Err(error) if error.kind() == std::io::ErrorKind::AlreadyExists => return Ok(path),
+            Err(error) => {
+                return Err(LaunchLineError::Configuration(format!(
+                    "Cannot create config file: {error}"
+                )));
+            }
+        }
 
         log::info!("Created starter config at {}", path.display());
         Ok(path)
