@@ -224,3 +224,7 @@ Use `launchline --check-config` to validate configuration without opening the me
 Set `NO_COLOR` for a selection marker without ANSI color. See the
 [compatibility matrix](docs/compatibility.md), [reproducible test and performance
 results](docs/validation/report.md), and [release readiness](docs/releasing.md).
+
+Nested menus and optional dynamic providers are described in the
+[menu lifecycle and provider contract](docs/menus.md), including Back navigation,
+refresh policies, caching, limits and error/retry behavior.

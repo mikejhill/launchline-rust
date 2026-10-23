@@ -17,5 +17,9 @@
       "INVALID"
     ],
     "exit": 2
+  },
+  {
+    "installed_terminal_suite": "passed",
+    "network": "offline runtime"
   }
 ]

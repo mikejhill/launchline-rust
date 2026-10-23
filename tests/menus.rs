@@ -316,3 +316,31 @@ fn lru_budget_evicts_old_inactive_nodes_without_touching_recent_snapshots() {
         "Old snapshots regenerate only on explicit reentry after eviction"
     );
 }
+
+#[test]
+fn large_static_menus_remain_compatible_but_generated_snapshots_are_bounded() {
+    let path = std::env::temp_dir().join(format!(
+        "launchline-large-static-{}.toml",
+        std::process::id()
+    ));
+    std::fs::write(
+        &path,
+        "[[entries]]\nname=\"tool\"\ncommand=\"unused\"\n".repeat(1001),
+    )
+    .unwrap();
+    let loaded = ConfigLoader::load(&path);
+    std::fs::remove_file(&path).unwrap();
+    assert_eq!(loaded.unwrap().entries.len(), 1001);
+    let entries = serde_json::Value::Array(vec![
+        serde_json::json!({"name":"tool","command":"unused"});
+        1001
+    ]);
+    assert!(ConfigLoader::parse_entries(entries.clone(), 0).is_err());
+    assert!(
+        ConfigLoader::parse_entries(
+            serde_json::json!([{"name":"child","menu":{"entries":entries}}]),
+            0
+        )
+        .is_err()
+    );
+}

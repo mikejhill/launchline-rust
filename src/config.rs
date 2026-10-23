@@ -224,6 +224,7 @@ impl ConfigLoader {
             },
             &title,
             0,
+            None,
         )?;
         if menu.entries.is_empty() && menu.provider.is_none() {
             return Err(LaunchLineError::Configuration(
@@ -256,7 +257,7 @@ impl ConfigLoader {
         let raw: Vec<RawEntry> = serde_json::from_value(value).map_err(|error| {
             LaunchLineError::Configuration(format!("Invalid provider entries: {error}"))
         })?;
-        Self::entries(raw, depth)
+        Self::entries(raw, depth, Some(1000))
     }
 
     fn reject_nulls(
@@ -324,8 +325,9 @@ impl ConfigLoader {
     fn entries(
         raw_entries: Vec<RawEntry>,
         depth: usize,
+        max_entries: Option<usize>,
     ) -> Result<Vec<EntryConfig>, LaunchLineError> {
-        if raw_entries.len() > 1000 {
+        if max_entries.is_some_and(|limit| raw_entries.len() > limit) {
             return Err(LaunchLineError::Configuration(
                 "At most 1000 entries are allowed per menu.".into(),
             ));
@@ -357,7 +359,7 @@ impl ConfigLoader {
             }
             let menu = raw_entry
                 .menu
-                .map(|menu| Self::menu(menu, &name, depth + 1))
+                .map(|menu| Self::menu(menu, &name, depth + 1, max_entries))
                 .transpose()?
                 .map(Box::new);
             let args = raw_entry.args.unwrap_or_default();
@@ -421,7 +423,12 @@ impl ConfigLoader {
         Ok(entries)
     }
 
-    fn menu(raw: RawMenu, fallback: &str, depth: usize) -> Result<MenuConfig, LaunchLineError> {
+    fn menu(
+        raw: RawMenu,
+        fallback: &str,
+        depth: usize,
+        max_entries: Option<usize>,
+    ) -> Result<MenuConfig, LaunchLineError> {
         if depth >= 16 {
             return Err(LaunchLineError::Configuration(
                 "Menus may be nested at most 16 levels including root.".into(),
@@ -435,7 +442,7 @@ impl ConfigLoader {
         let title = raw.title.unwrap_or_else(|| fallback.into());
         Self::validate_display(&title)?;
         let provider = raw.provider.map(Self::provider).transpose()?.map(Box::new);
-        let entries = Self::entries(raw.entries.unwrap_or_default(), depth)?;
+        let entries = Self::entries(raw.entries.unwrap_or_default(), depth, max_entries)?;
         Ok(MenuConfig {
             entries,
             title,
@@ -467,7 +474,7 @@ impl ConfigLoader {
             menu: None,
         };
         Ok(ProviderConfig {
-            entry: Self::entries(vec![entry], 0)?.remove(0),
+            entry: Self::entries(vec![entry], 0, None)?.remove(0),
             timeout_seconds,
         })
     }

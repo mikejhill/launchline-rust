@@ -29,3 +29,11 @@ startup/memory costs therefore differ. No maximum-performance claim is made.
 Executed: Windows x64 both; Ubuntu/WSL Python. macOS, ARM targets, Rust Linux/macOS,
 physical terminal/screen-reader combinations and hosted CI have not been executed
 here. See [validation report](validation/report.md) and [release readiness](releasing.md).
+
+## Nested and dynamic menu extension
+
+See the [shared lifecycle and provider schema](menus.md) and
+[feature validation matrix](validation/menu-checkpoint.md) for current evidence.
+The earlier matrix above describes the modernization baseline; feature-head hosted
+CI and ordered releases are tracked separately. Windows raw/Kitty input differences
+are explicitly documented rather than asserted equivalent.

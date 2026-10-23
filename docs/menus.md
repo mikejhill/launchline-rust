@@ -85,7 +85,7 @@ Nonzero exit, malformed JSON/UTF-8/schema, oversized output, timeout and excessi
 nesting all fail without replacing the previous snapshot. Display control
 characters and invalid environment keys are rejected by the shared parser.
 
-Limits: cache 128 menu frames, JSON 64 container levels, stdout 1 MiB, at most 1,000 entries per menu, at most 16 active/static menu
+Limits: cache 128 menu frames, JSON 64 container levels, stdout 1 MiB, at most 1,000 entries per generated menu (including nested declarations; static TOML menus retain their existing capacity), at most 16 active/static menu
 levels including root; integer `timeout_seconds` is 1–300, default 10. Each process
 uses an owned POSIX process group or Windows kill-on-close job. Cleanup runs after
 success, failure, cancellation and timeout, including descendants holding stdout.
@@ -112,3 +112,24 @@ No universal fast-Escape behavior is claimed across terminal protocols. Real par
 query restoration, Back, numeric selection, refresh and interrupted flows remain
 covered through actual terminals; physical keyboards/screen readers need separate
 validation.
+
+
+The Windows boundary probe confirmed a narrower cause for Python: in an owned
+ConPTY, `msvcrt.getwch()` received `[27]` for bare Escape, `[48]` for a raw
+`ESC+0` burst, and `[27,91,50,55,117,48]` for `CSI 27u` followed by `0`.
+The terminal discarded the burst's Escape before application input decoding;
+the application cannot reconstruct that missing event. The Rust burst also failed,
+but its native event boundary was not instrumented, so the same cause is an inference.
+Use separate Escape then digit events, or the explicit Back/Exit rows; the tested
+query-clear flow waits for its redraw before sending the next key. Kitty event
+encoding survives the Python console boundary; end-to-end support still depends
+on the terminal's negotiated keyboard protocol. See `menu-protocol-limit.json`.
+
+
+Windows protocol difference: Python decodes an explicit `CSI 27u` Escape followed
+by a queued digit (verified in the installed wheel). Rust uses Crossterm native
+Windows console events and does not negotiate Kitty input there; injecting that
+sequence produced literal `[27u0` query text. Its test verifies that no command
+runs and that Ctrl+U followed by numeric Exit recovers cleanly. On Unix the same
+test exercises Crossterm's escape-sequence decoder. Separate Escape events, Ctrl+U,
+Back/Exit rows and ordinary keyboard navigation are the portable contract.

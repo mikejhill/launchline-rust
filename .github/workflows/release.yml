@@ -109,6 +109,9 @@ jobs:
     - run: uv run --locked --project pypi --group dev pytest pypi/tests --junitxml=junit.xml
     - run: uv run --project pypi python scripts/mutation_check.py rust
       if: matrix.os == 'windows-latest'
+    - name: Check seeded menu mutations
+      run: uv run --locked --project pypi python scripts/mutate_menus.py rust
+      if: matrix.os == 'windows-latest'
     - name: Wrapper test results
       if: always()
       uses: mikepenz/action-junit-report@6ef3fdcfcd5f0b5d14df3e659ef19b8c6820f93d

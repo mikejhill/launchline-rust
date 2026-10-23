@@ -518,3 +518,21 @@ class TestMenuTerminalWorkflows:
             session.wait_plain("\u276f  (", count=count + 1)
             session.write("0")
             assert session.exited() == 0, session.output
+
+    def test_explicit_escape_event_then_numeric_exit(self, tmp_path: Path) -> None:
+        """Bound unsupported Windows protocol input and verify a portable recovery."""
+        config, _counter = self._config(tmp_path)
+        with TerminalSession(TestTerminalWorkflows._command(config)) as session:
+            session.wait("Projects1")
+            session.write("nomatch")
+            session.wait_plain("\u276f nomatch")
+            session.write("\x1b[27u0")
+            if sys.platform == "win32":
+                # Crossterm uses native console events on Windows. ConPTY does not
+                # negotiate Kitty here; the sequence becomes ordinary query text.
+                session.wait_plain("\u276f nomatch[27u0")
+                count = session.plain_output.count("\u276f  (")
+                session.write("\x15")
+                session.wait_plain("\u276f  (", count=count + 1)
+                session.write("0")
+            assert session.exited() == 0, session.output
