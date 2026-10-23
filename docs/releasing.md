@@ -33,13 +33,19 @@ Cargo has no token environment variable, credential file or configured provider.
 No credential or registry trust has been created. Official crates.io guidance
 requires a first manual release before configuring Trusted Publishing.
 
-The concrete setup proposal is a short-lived, crate-restricted bootstrap publish
-credential (initial release only, then revoke), followed by Trusted Publishing for
+The exact bootstrap proposal is a 24-hour token named `launchline-bootstrap-YYYYMMDD`,
+with only `publish-new` and exact crate pattern `launchline` (no wildcard). Initial
+publication enforces that name restriction too. The token is used only in memory by
+one upload process for the tested initial crate, is not stored in Cargo credentials,
+GitHub secrets, repository files or chat, and is revoked after verified publication.
+Then configure Trusted Publishing for
 crate `launchline`, GitHub repository `mikejhill/launchline-rust`, workflow `release.yml`,
 environment `crates-io`. A separate main-only `crates-io` GitHub environment with no
 reviewers is required before merging; it is not created implicitly by this task.
-Exact token scope/expiry and account identity must be approved before credential
-creation. The old unused `pypi` environment remains inert and unchanged.
+Account `mikejhill` is verified from the logged-in profile. It has no email address
+configured: Mike must add and verify his chosen email through the registry profile
+before first publication. The token, registry trust and new environment require the
+explicit bundled approval; no credential is created before that approval. The old unused `pypi` environment remains inert and unchanged.
 
 ## Validation
 
@@ -47,7 +53,8 @@ Run `cargo fmt --check`, `cargo clippy --locked --all-targets -- -D warnings`,
 `cargo test --locked`, `cargo publish --dry-run --locked --allow-dirty`, then
 `uv run --locked --project pypi python scripts/build_crate.py` and
 `uv run --locked --project pypi python scripts/crate_install_smoke.py`.
-The historical pypi directory supplies retained Python test tooling only; its
+Generated version notes are retained inside release crates as `release-changelog.md`.
+The historical pypi directory supplies retained Python >=3.11 test tooling only; its
 wrapper source is preserved but excluded from the Cargo payload and publishing.
 Offline policy tests intercept every registry/GitHub request; no test publishes.
 

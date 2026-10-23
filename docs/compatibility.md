@@ -1,3 +1,6 @@
+> Current Rust distribution: crates.io only; Cargo-installed icon/terminal behavior is validated.
+> Older archive/wrapper evidence below is historical retained compatibility coverage. See [release process](releasing.md).
+
 # Shared compatibility contract
 
 Baseline: Python `904ace1`, Rust `109a68b`. Modernized together on MHILL-LAPTOP.

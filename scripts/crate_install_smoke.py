@@ -67,10 +67,19 @@ class CrateInstall:
             )
             subprocess.run([str(executable), "--help"], capture_output=True, check=True)
             if not args.terminal_only:
-                subprocess.run([
-                    "cargo", "test", "--manifest-path", str(source / "Cargo.toml"),
-                    "--locked", "--offline", "--target-dir", str(root / "target/crate-tests"),
-                ], check=True)
+                subprocess.run(
+                    [
+                        "cargo",
+                        "test",
+                        "--manifest-path",
+                        str(source / "Cargo.toml"),
+                        "--locked",
+                        "--offline",
+                        "--target-dir",
+                        str(root / "target/crate-tests"),
+                    ],
+                    check=True,
+                )
             test = root / "pypi/tests"
             if args.terminal_only:
                 test /= "test_terminal_e2e.py"
