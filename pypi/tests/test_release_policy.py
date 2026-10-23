@@ -244,3 +244,53 @@ gh() {
         assert "release create" not in body and "release upload" not in body, (
             "Source tags must not publish GitHub binary distributions"
         )
+
+
+class TestReleaseCheckParity:
+    """Prevent the inline release matrix from losing normal CI checks."""
+
+    def test_release_and_pr_checks_match_except_checkout_ref(self) -> None:
+        root = Path(__file__).resolve().parents[2]
+        ci = yaml.safe_load(
+            (root / ".github/workflows/ci.yml").read_text(encoding="utf-8")
+        )
+        release = yaml.safe_load(
+            (root / ".github/workflows/release.yml").read_text(encoding="utf-8")
+        )
+        expected = ci["jobs"]["check"]
+        expected["steps"][0]["with"]["ref"] = "${{ github.sha }}"
+        assert release["jobs"]["ci"] == expected, (
+            "Release must retain the complete exact-head test matrix"
+        )
+
+
+class TestPreUploadSourcePolicy:
+    """Run the actual pre-authentication main/tag boundary without network calls."""
+
+    @pytest.mark.parametrize(("scenario", "expected"), [("normal", 0), ("tag-conflict", 1), ("not-on-main", 1)])
+    def test_preflight_rejects_conflicting_source_before_oidc(self, scenario: str, expected: int, tmp_path: Path) -> None:
+        root = Path(__file__).resolve().parents[2]
+        workflow = yaml.safe_load((root / ".github/workflows/release.yml").read_text(encoding="utf-8"))
+        steps = workflow["jobs"]["crates"]["steps"]
+        body = next(step["run"] for step in steps if step.get("name") == "Validate source ancestry and immutable tag boundary")
+        auth = next(index for index, step in enumerate(steps) if step.get("id") == "auth")
+        validation = next(index for index, step in enumerate(steps) if step.get("name") == "Validate artifact before requesting credentials")
+        assert validation < auth, "Validate untrusted artifact bytes before acquiring a publishing credential"
+        fake = r"""
+set -euo pipefail
+gh() {
+  case "$*" in
+    "api repos/fixture/launchline/compare/"*)
+      if [ "$SCENARIO" = not-on-main ]; then echo bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb; else echo "$GITHUB_SHA"; fi ;;
+    "api repos/fixture/launchline/git/matching-refs/"*)
+      if [ "$SCENARIO" = tag-conflict ]; then echo bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb; else echo ''; fi ;;
+    *) echo 'Unexpected offline GitHub call' >&2; return 99 ;;
+  esac
+}
+"""
+        bash = str(Path(os.environ["PROGRAMFILES"]) / "Git/bin/bash.exe") if sys.platform == "win32" else shutil.which("bash")
+        assert bash is not None
+        result = subprocess.run([bash, "-c", fake + body], cwd=tmp_path, env={**os.environ,
+            "SCENARIO":scenario, "GITHUB_SHA":"a"*40, "GITHUB_REPOSITORY":"fixture/launchline",
+            "TAG":"v0.1.0", "VERSION":"0.1.0"}, capture_output=True, text=True, check=False, timeout=30)
+        assert result.returncode == expected, result.stderr

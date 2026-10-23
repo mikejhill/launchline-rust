@@ -1,3 +1,5 @@
+> Superseded publishing setup: the October 23 crates.io-only instruction replaces the historical Rust PyPI/GitHub binary plans below. See ../releasing.md for the current route and approvals.
+
 # Nested and dynamic menu validation
 
 This feature is implemented locally and awaits exact-head hosted CI and release

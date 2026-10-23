@@ -75,3 +75,5 @@ release/
 release-changelog.md
 
 /crate-release/
+
+**/__pycache__/
