@@ -1,0 +1,9 @@
+{
+  "host": "MHILL-LAPTOP",
+  "platform": "Windows ConPTY",
+  "probe": "raw ESC+0 byte burst after nonempty search",
+  "python": "did not exit; query became nomatch0",
+  "rust": "did not exit; query retained",
+  "interpretation": "legacy escape/Alt ambiguity; exact two-key behavior requires disambiguated input or observable redraw",
+  "validation_change": "retain real Escape-clear then numeric-exit scenario with unique prompt readiness; do not claim indistinguishable byte bursts are physical key events"
+}

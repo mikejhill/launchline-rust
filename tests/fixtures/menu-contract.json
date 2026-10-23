@@ -1,0 +1,161 @@
+{
+  "static": [
+    {
+      "name": "nested-static",
+      "toml": "[[entries]]\nname=\"Projects\"\n[entries.menu]\n[[entries.menu.entries]]\nname=\"Shell\"\ncommand=\"unused\"",
+      "valid": true
+    },
+    {
+      "name": "empty-child",
+      "toml": "[[entries]]\nname=\"Empty\"\n[entries.menu]",
+      "valid": true
+    },
+    {
+      "name": "dynamic-root",
+      "toml": "[settings]\nrefresh_on_return=true\n[provider]\ncommand=\"unused\"\ntimeout_seconds=300",
+      "valid": true
+    },
+    {
+      "name": "dynamic-child",
+      "toml": "[[entries]]\nname=\"Child\"\n[entries.menu.provider]\ncommand=\"unused\"\ntimeout_seconds=1",
+      "valid": true
+    },
+    {
+      "name": "old-root-metadata",
+      "toml": "title=12\nrefresh_on_return=\"old metadata\"\n[[entries]]\nname=\"tool\"\ncommand=\"unused\"",
+      "valid": true
+    },
+    {
+      "name": "entries-and-provider",
+      "toml": "entries=[]\n[provider]\ncommand=\"unused\"",
+      "valid": false
+    },
+    {
+      "name": "leaf-and-menu",
+      "toml": "[[entries]]\nname=\"bad\"\ncommand=\"unused\"\n[entries.menu]",
+      "valid": false
+    },
+    {
+      "name": "menu-args",
+      "toml": "[[entries]]\nname=\"bad\"\nargs=[]\n[entries.menu]",
+      "valid": false
+    },
+    {
+      "name": "duplicate-ids",
+      "toml": "[[entries]]\nid=\"a\"\nname=\"a\"\ncommand=\"unused\"\n[[entries]]\nid=\"a\"\nname=\"b\"\ncommand=\"unused\"",
+      "valid": false
+    },
+    {
+      "name": "timeout-bool",
+      "toml": "[provider]\ncommand=\"unused\"\ntimeout_seconds=true",
+      "valid": false
+    },
+    {
+      "name": "timeout-zero",
+      "toml": "[provider]\ncommand=\"unused\"\ntimeout_seconds=0",
+      "valid": false
+    },
+    {
+      "name": "timeout-over",
+      "toml": "[provider]\ncommand=\"unused\"\ntimeout_seconds=301",
+      "valid": false
+    },
+    {
+      "name": "empty-static-root",
+      "toml": "entries=[]",
+      "valid": false
+    },
+    {
+      "name": "malformed-nested",
+      "toml": "[[entries]]\nname=\"bad\"\n[entries.menu]\nentries=[{name=\"missing\"}]",
+      "valid": false
+    },
+    {
+      "name": "malformed-menu",
+      "toml": "[[entries]]\nname=\"bad\"\nmenu=12",
+      "valid": false
+    },
+    {
+      "name": "too-deep-static",
+      "toml": "[[entries]]\nname=\"nested0\"\n[entries.menu]\n[[entries.menu.entries]]\nname=\"nested1\"\n[entries.menu.entries.menu]\n[[entries.menu.entries.menu.entries]]\nname=\"nested2\"\n[entries.menu.entries.menu.entries.menu]\n[[entries.menu.entries.menu.entries.menu.entries]]\nname=\"nested3\"\n[entries.menu.entries.menu.entries.menu.entries.menu]\n[[entries.menu.entries.menu.entries.menu.entries.menu.entries]]\nname=\"nested4\"\n[entries.menu.entries.menu.entries.menu.entries.menu.entries.menu]\n[[entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries]]\nname=\"nested5\"\n[entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu]\n[[entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries]]\nname=\"nested6\"\n[entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu]\n[[entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries]]\nname=\"nested7\"\n[entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu]\n[[entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries]]\nname=\"nested8\"\n[entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu]\n[[entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries]]\nname=\"nested9\"\n[entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu]\n[[entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries]]\nname=\"nested10\"\n[entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu]\n[[entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries]]\nname=\"nested11\"\n[entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu]\n[[entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries]]\nname=\"nested12\"\n[entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu]\n[[entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries]]\nname=\"nested13\"\n[entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu]\n[[entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries]]\nname=\"nested14\"\n[entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu]\n[[entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries]]\nname=\"nested15\"\n[entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu.entries.menu]\n",
+      "valid": false
+    }
+  ],
+  "providers": [
+    {
+      "name": "empty",
+      "json": "{\"entries\": []}",
+      "valid": true
+    },
+    {
+      "name": "nested",
+      "json": "{\"entries\": [{\"id\": \"m\", \"name\": \"Menu\", \"menu\": {\"entries\": []}}]}",
+      "valid": true
+    },
+    {
+      "name": "unicode",
+      "json": "{\"entries\": [{\"name\": \"\\u732b\\ud83d\\ude42\", \"command\": \"unused\"}]}",
+      "valid": true
+    },
+    {
+      "name": "null-args",
+      "json": "{\"entries\": [{\"name\": \"bad\", \"command\": \"unused\", \"args\": null}]}",
+      "valid": false
+    },
+    {
+      "name": "null-id",
+      "json": "{\"entries\": [{\"name\": \"bad\", \"command\": \"unused\", \"id\": null}]}",
+      "valid": false
+    },
+    {
+      "name": "null-menu",
+      "json": "{\"entries\": [{\"name\": \"bad\", \"command\": \"unused\", \"menu\": null}]}",
+      "valid": false
+    },
+    {
+      "name": "malformed-env",
+      "json": "{\"entries\": [{\"name\": \"bad\", \"command\": \"unused\", \"env\": {\"X\": 12}}]}",
+      "valid": false
+    },
+    {
+      "name": "missing-array",
+      "json": "{}",
+      "valid": false
+    },
+    {
+      "name": "root-array",
+      "json": "[]",
+      "valid": false
+    },
+    {
+      "name": "nonfinite",
+      "json": "{\"entries\":[],\"ignored\":NaN}",
+      "valid": false
+    },
+    {
+      "name": "overflow",
+      "json": "{\"entries\":[],\"ignored\":1e400}",
+      "valid": false
+    },
+    {
+      "name": "integer-overflow",
+      "json": "{\"entries\":[],\"ignored\":9999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999999}",
+      "valid": false
+    },
+    {
+      "name": "unpaired-surrogate",
+      "json": "{\"entries\":[],\"ignored\":\"\\ud800\"}",
+      "valid": false
+    },
+    {
+      "name": "deep-metadata",
+      "json": "{\"entries\":[],\"ignored\":[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[[0]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]]}",
+      "valid": false
+    },
+    {
+      "name": "ignored-provider-fields",
+      "json": "{\"entries\": [{\"name\": \"Menu\", \"menu\": {\"provider\": {\"command\": \"unused\", \"id\": 12, \"description\": 12}}}]}",
+      "valid": true
+    }
+  ]
+}

@@ -1,0 +1,56 @@
+[
+  {
+    "source": "src/menus.rs",
+    "mutant": "cache-reuse",
+    "status": "killed",
+    "diagnostic": "\nrunning 8 tests\n. 1/8\nfailure_retains_snapshot_without_automatic_retry_and_empty_retry_succeeds --- FAILED\n. 3/8\nchild_provider_is_lazy_and_cached_across_reentry --- FAILED\nlru_budget_evicts_old_inactive_nodes_without_touching_recent_snapshots --- FAILED\n...\nfailures:\n\n---- failure_retains_snapshot_without_automatic_retry_and_empty_retry_succeeds stdout ----\n\nthread 'failure_retains_snapshot_without_automatic_retry_and_empty_retry_succeeds' (98132) panicked at tests\\menus.rs:154:5:\nassertion `left == right` failed: Failure must wait for explicit retry\n  left: 3\n right: 2\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n---- child_provider_is_lazy_and_cached_across_reentry stdout ----\n\nthread 'child_provider_is_lazy_and_cached_across_reentry' (42336) panicked at tests\\menus.rs:54:14:\nOnly expected provider calls may occur\n\n---- lru_budget_evicts_old_inactive_nodes_without_touching_recent_snapshots stdout ----\n\nthread 'lru_budget_evicts_old_inactive_nodes_without_touching_recent_snapshots' (22992) panicked at tests\\menus.rs:307:5:\nassertion `left == right` failed: Recent snapshots must remain cached within the 128-menu budget\n  left: 131\n right: 130\n\n\nfailures:\n    child_provider_is_lazy_and_cached_across_reentry\n    failure_retains_snapshot_without_automatic_retry_and_empty_retry_succeeds\n    lru_budget_evicts_old_inactive_nodes_without_touching_recent_snapshots\n\ntest result: FAILED. 5 passed; 3 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.87s\n\nerror: test failed, to rerun pass `--test menus`\n"
+  },
+  {
+    "source": "src/menus.rs",
+    "mutant": "return-refresh",
+    "status": "killed",
+    "diagnostic": "\nrunning 8 tests\n.. 2/8\nparent_refresh_invalidates_changed_children_and_preserves_id --- FAILED\n.....\nfailures:\n\n---- parent_refresh_invalidates_changed_children_and_preserves_id stdout ----\n\nthread 'parent_refresh_invalidates_changed_children_and_preserves_id' (95992) panicked at tests\\menus.rs:106:5:\nassertion `left == right` failed: Return policy must regenerate parent\n  left: [EntryConfig { name: \"Projects\", command: \"\", args: [], description: \"\", working_directory: None, env: {}, id: \"projects\", menu: Some(MenuConfig { entries: [], title: \"Projects\", provider: None, refresh_on_return: false }) }]\n right: [EntryConfig { name: \"Renamed\", command: \"\", args: [], description: \"\", working_directory: None, env: {}, id: \"projects\", menu: Some(MenuConfig { entries: [], title: \"Changed\", provider: None, refresh_on_return: false }) }]\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    parent_refresh_invalidates_changed_children_and_preserves_id\n\ntest result: FAILED. 7 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.06s\n\nerror: test failed, to rerun pass `--test menus`\n"
+  },
+  {
+    "source": "src/menus.rs",
+    "mutant": "retain-snapshot",
+    "status": "killed",
+    "diagnostic": "\nrunning 8 tests\n.. 2/8\nfailure_retains_snapshot_without_automatic_retry_and_empty_retry_succeeds --- FAILED\n.....\nfailures:\n\n---- failure_retains_snapshot_without_automatic_retry_and_empty_retry_succeeds stdout ----\n\nthread 'failure_retains_snapshot_without_automatic_retry_and_empty_retry_succeeds' (57276) panicked at tests\\menus.rs:148:5:\nassertion `left == right` failed: Last good snapshot must survive failure\n  left: []\n right: [EntryConfig { name: \"Safe\", command: \"unused\", args: [], description: \"\", working_directory: None, env: {}, id: \"\", menu: None }]\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    failure_retains_snapshot_without_automatic_retry_and_empty_retry_succeeds\n\ntest result: FAILED. 7 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.88s\n\nerror: test failed, to rerun pass `--test menus`\n"
+  },
+  {
+    "source": "src/menus.rs",
+    "mutant": "changed-child",
+    "status": "killed",
+    "diagnostic": "\nrunning 8 tests\n... 3/8\nparent_refresh_invalidates_changed_children_and_preserves_id --- FAILED\n....\nfailures:\n\n---- parent_refresh_invalidates_changed_children_and_preserves_id stdout ----\n\nthread 'parent_refresh_invalidates_changed_children_and_preserves_id' (83984) panicked at tests\\menus.rs:111:5:\nChanged declarations must discard cached descendants\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    parent_refresh_invalidates_changed_children_and_preserves_id\n\ntest result: FAILED. 7 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.04s\n\nerror: test failed, to rerun pass `--test menus`\n"
+  },
+  {
+    "source": "src/menus.rs",
+    "mutant": "cache-budget",
+    "status": "killed",
+    "diagnostic": "\nrunning 8 tests\n.... 4/8\nlru_budget_evicts_old_inactive_nodes_without_touching_recent_snapshots --- FAILED\n...\nfailures:\n\n---- lru_budget_evicts_old_inactive_nodes_without_touching_recent_snapshots stdout ----\n\nthread 'lru_budget_evicts_old_inactive_nodes_without_touching_recent_snapshots' (61948) panicked at tests\\menus.rs:313:5:\nassertion `left == right` failed: Old snapshots regenerate only on explicit reentry after eviction\n  left: 130\n right: 131\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    lru_budget_evicts_old_inactive_nodes_without_touching_recent_snapshots\n\ntest result: FAILED. 7 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.96s\n\nerror: test failed, to rerun pass `--test menus`\n"
+  },
+  {
+    "source": "src/config.rs",
+    "mutant": "nesting-limit",
+    "status": "killed",
+    "diagnostic": "\nrunning 8 tests\n..... 5/8\nshared_static_and_provider_fixture_contract_matches_python --- FAILED\n..\nfailures:\n\n---- shared_static_and_provider_fixture_contract_matches_python stdout ----\n\nthread 'shared_static_and_provider_fixture_contract_matches_python' (96648) panicked at tests\\menus.rs:268:9:\nassertion `left == right` failed: Static fixture \"too-deep-static\" must agree\n  left: true\n right: false\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    shared_static_and_provider_fixture_contract_matches_python\n\ntest result: FAILED. 7 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 2.03s\n\nerror: test failed, to rerun pass `--test menus`\n"
+  },
+  {
+    "source": "src/config.rs",
+    "mutant": "unique-ids",
+    "status": "invalid",
+    "diagnostic": "error[E0282]: type annotations needed for `HashSet<_>`\n   --> src\\config.rs:413:13\n    |\n413 |         let mut identities = std::collections::HashSet::new();\n    |             ^^^^^^^^^^^^^^   -------------------------------- type must be known at this point\n    |\nhelp: consider giving `identities` an explicit type, where the type for type parameter `T` is specified\n    |\n413 |         let mut identities: HashSet<T> = std::collections::HashSet::new();\n    |                           ++++++++++++\n\nFor more information about this error, try `rustc --explain E0282`.\nerror: could not compile `launchline` (lib) due to 1 previous error\n"
+  },
+  {
+    "source": "src/providers.rs",
+    "mutant": "output-limit",
+    "status": "killed",
+    "diagnostic": "\nrunning 8 tests\n...... 6/8\nactual_provider_boundaries_reject_failures_and_accept_closed_stdin --- FAILED\n.\nfailures:\n\n---- actual_provider_boundaries_reject_failures_and_accept_closed_stdin stdout ----\n\nthread 'actual_provider_boundaries_reject_failures_and_accept_closed_stdin' (12528) panicked at tests\\menus.rs:209:9:\nassertion `left == right` failed: Unexpected provider mode oversize: Ok([])\n  left: true\n right: false\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    actual_provider_boundaries_reject_failures_and_accept_closed_stdin\n\ntest result: FAILED. 7 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 1.40s\n\nerror: test failed, to rerun pass `--test menus`\n"
+  },
+  {
+    "source": "src/providers.rs",
+    "mutant": "deadline",
+    "status": "killed",
+    "diagnostic": "\nrunning 8 tests\n....... 7/8\nactual_provider_boundaries_reject_failures_and_accept_closed_stdin --- FAILED\n\nfailures:\n\n---- actual_provider_boundaries_reject_failures_and_accept_closed_stdin stdout ----\n\nthread 'actual_provider_boundaries_reject_failures_and_accept_closed_stdin' (54428) panicked at tests\\menus.rs:209:9:\nassertion `left == right` failed: Unexpected provider mode timeout: Ok([])\n  left: true\n right: false\nnote: run with `RUST_BACKTRACE=1` environment variable to display a backtrace\n\n\nfailures:\n    actual_provider_boundaries_reject_failures_and_accept_closed_stdin\n\ntest result: FAILED. 7 passed; 1 failed; 0 ignored; 0 measured; 0 filtered out; finished in 4.04s\n\nwarning: unused variable: `deadline`\n   --> src\\providers.rs:151:13\n    |\n151 |         let deadline = Instant::now() + Duration::from_secs(timeout);\n    |             ^^^^^^^^ help: if this is intentional, prefix it with an underscore: `_deadline`\n    |\n    = note: `#[warn(unused_variables)]` (part of `#[warn(unused)]`) on by default\n\nerror: test failed, to rerun pass `--test menus`\n"
+  }
+]

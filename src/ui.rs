@@ -8,6 +8,7 @@ use crossterm::{
 
 use crate::config::{EntryConfig, LaunchLineConfig};
 use crate::fuzzy::FuzzyMatcher;
+use crate::menus::{ViewState, same_entry};
 
 const MAX_LIST_HEIGHT: usize = 10;
 // header(4) + cwd(1) + sep_above(1) + prompt(1) + sep_below(1) + footer(1)
@@ -37,12 +38,32 @@ fn exit_entry_config() -> EntryConfig {
         description: "Close the launcher".to_string(),
         working_directory: None,
         env: std::collections::HashMap::new(),
+
+        id: String::new(),
+        menu: None,
     }
+}
+
+/// Explicit menu outcomes retain the legacy `run` API for static launchers.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum MenuIntent {
+    Entry,
+    Back,
+    Exit,
+    Refresh,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct MenuChoice {
+    pub intent: MenuIntent,
+    pub index: Option<usize>,
 }
 
 /// Interactive terminal UI for the launcher menu.
 pub struct LaunchLineUI<'a> {
     config: &'a LaunchLineConfig,
+    navigation: bool,
+    intent: MenuIntent,
     all_entries: Vec<NumberedEntry<'a>>,
     exit_entry: EntryConfig,
     show_exit: bool,
@@ -75,6 +96,8 @@ impl<'a> LaunchLineUI<'a> {
 
         Self {
             config,
+            navigation: false,
+            intent: MenuIntent::Exit,
             all_entries,
             exit_entry: exit_entry_config(),
             show_exit: config.show_exit,
@@ -99,6 +122,75 @@ impl<'a> LaunchLineUI<'a> {
 
         self.leave_alt_screen();
         result_idx.map(|idx| &self.config.entries[idx])
+    }
+
+    /// Select an entry or navigation control and retain its view state.
+    pub fn choose(&mut self, state: &ViewState) -> (MenuChoice, ViewState) {
+        self.reset();
+        self.navigation = true;
+        self.intent = MenuIntent::Exit;
+        self.restore_state(state);
+        self.enter_alt_screen();
+        let index = self.run_loop();
+        self.leave_alt_screen();
+        self.navigation = false;
+        (
+            MenuChoice {
+                intent: if index.is_some() {
+                    MenuIntent::Entry
+                } else {
+                    self.intent
+                },
+                index,
+            },
+            self.capture_state(),
+        )
+    }
+
+    pub fn capture_state(&self) -> ViewState {
+        let selected = self
+            .visible
+            .get(self.highlight_idx)
+            .map(|index| self.config.entries[*index].clone())
+            .or_else(|| {
+                if self.exit_visible {
+                    Some(self.exit_entry.clone())
+                } else {
+                    None
+                }
+            });
+        ViewState {
+            query: self.query.clone(),
+            cursor: self.cursor_pos,
+            selected,
+            viewport: self.viewport_offset,
+        }
+    }
+
+    pub fn restore_state(&mut self, state: &ViewState) {
+        self.query = state.query.clone();
+        self.cursor_pos = state.cursor.min(self.query.len());
+        while !self.query.is_char_boundary(self.cursor_pos) {
+            self.cursor_pos -= 1;
+        }
+        self.update_filter();
+        if let Some(selected) = &state.selected {
+            self.highlight_idx = self
+                .visible
+                .iter()
+                .position(|index| same_entry(selected, &self.config.entries[*index]))
+                .unwrap_or_else(|| {
+                    if self.exit_visible && same_entry(selected, &self.exit_entry) {
+                        self.visible.len()
+                    } else {
+                        0
+                    }
+                });
+        }
+        self.viewport_offset = state
+            .viewport
+            .min(self.display_list_len().saturating_sub(1));
+        self.ensure_highlight_visible();
     }
 
     fn run_loop(&mut self) -> Option<usize> {
@@ -142,6 +234,14 @@ impl<'a> LaunchLineUI<'a> {
                             return Some(idx);
                         }
                         KeyAction::Exit => {
+                            return None;
+                        }
+                        KeyAction::Back => {
+                            self.intent = MenuIntent::Back;
+                            return None;
+                        }
+                        KeyAction::Refresh => {
+                            self.intent = MenuIntent::Refresh;
                             return None;
                         }
                         KeyAction::Ignore => {}
@@ -197,11 +297,14 @@ impl<'a> LaunchLineUI<'a> {
                     self.cursor_pos = 0;
                     self.update_filter();
                     KeyAction::Continue
+                } else if self.navigation {
+                    KeyAction::Back
                 } else {
                     KeyAction::Exit
                 }
             }
 
+            KeyCode::Char('r') if ctrl && self.navigation => KeyAction::Refresh,
             KeyCode::Enter => {
                 let dl_len = self.display_list_len();
                 if dl_len > 0 && self.highlight_idx < dl_len {
@@ -699,6 +802,11 @@ impl<'a> LaunchLineUI<'a> {
             row += 1;
         }
 
+        let refresh_hint = if self.navigation {
+            "  Ctrl+R=refresh"
+        } else {
+            ""
+        };
         // -- Clear remaining rows between list and footer --
         let footer_row = th;
         while row < footer_row {
@@ -708,7 +816,7 @@ impl<'a> LaunchLineUI<'a> {
 
         // -- Footer hint (last line) --
         buf.push_str(&format!(
-            "\x1b[{th};1H{GRAY}#=select  type=search  \u{2191}\u{2193}=navigate  Esc=back  Ctrl+C=quit{RESET}\x1b[K"
+            "\x1b[{th};1H{GRAY}#=select  type=search  \u{2191}\u{2193}=navigate  Esc=back  Ctrl+C=quit{refresh_hint}{RESET}\x1b[K"
         ));
 
         // Position cursor on prompt line
@@ -758,6 +866,8 @@ impl<'a> LaunchLineUI<'a> {
 
 #[derive(Debug, PartialEq)]
 enum KeyAction {
+    Back,
+    Refresh,
     Continue,
     Launch(usize), // index into config.entries
     Exit,
@@ -800,8 +910,14 @@ mod tests {
                     description: String::new(),
                     working_directory: None,
                     env: std::collections::HashMap::new(),
+
+                    id: String::new(),
+                    menu: None,
                 })
                 .collect(),
+
+            provider: None,
+            refresh_on_return: false,
         }
     }
 
@@ -822,8 +938,14 @@ mod tests {
                     description: String::new(),
                     working_directory: None,
                     env: std::collections::HashMap::new(),
+
+                    id: String::new(),
+                    menu: None,
                 })
                 .collect(),
+
+            provider: None,
+            refresh_on_return: false,
         }
     }
 
@@ -2086,6 +2208,53 @@ mod tests {
             ui.cursor_pos, 1,
             "Cursor should be at 1, got {}",
             ui.cursor_pos
+        );
+    }
+
+    #[test]
+    fn nested_navigation_distinguishes_back_refresh_and_global_exit() {
+        let config = test_config(1);
+        let mut ui = LaunchLineUI::new(&config);
+        ui.navigation = true;
+        assert_eq!(
+            ui.on_key(KeyEvent::new(KeyCode::Esc, KeyModifiers::NONE)),
+            KeyAction::Back,
+            "Empty Escape must return to parent"
+        );
+        assert_eq!(
+            ui.on_key(KeyEvent::new(KeyCode::Char('r'), KeyModifiers::CONTROL)),
+            KeyAction::Refresh,
+            "Ctrl+R must request explicit refresh"
+        );
+        assert_eq!(
+            ui.on_key(KeyEvent::new(KeyCode::Char('c'), KeyModifiers::CONTROL)),
+            KeyAction::Exit,
+            "Ctrl+C must exit globally"
+        );
+    }
+
+    #[test]
+    fn restored_selection_matches_stable_id_and_unicode_cursor_boundary() {
+        let mut config = named_config(&["猫 other", "猫 new"]);
+        config.entries[1].id = "stable".into();
+        let mut old = config.entries[1].clone();
+        old.name = "猫 old".into();
+        let mut ui = LaunchLineUI::new(&config);
+        ui.restore_state(&ViewState {
+            query: "猫".into(),
+            cursor: 2,
+            selected: Some(old),
+            viewport: 99,
+        });
+        let state = ui.capture_state();
+        assert_eq!(
+            state.selected.unwrap().id,
+            "stable",
+            "Reordered selections must match id"
+        );
+        assert_eq!(
+            state.cursor, 0,
+            "Restored cursor must not split a UTF-8 scalar"
         );
     }
 }

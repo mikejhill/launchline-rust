@@ -38,10 +38,11 @@ when returning from a child menu, not when a launched tool returns to its menu.
 
 ## Lifecycle and keyboard contract
 
-- Entering a menu loads its provider once per session. Child providers do not run
+- Entering a menu loads its provider on first visit. Child providers do not run
   while parsing configuration, rendering parents or running `--check-config`.
-- Snapshots and child menu instances are cached for the session. Back/reentry uses
-  the cache. `Ctrl+R` or the visible Refresh/Retry row explicitly regenerates the
+- Snapshots and child menu instances use a session LRU cache of at most 128
+  menu frames, including root. Active ancestors are never evicted. Back/reentry
+  uses the cache unless an inactive snapshot was evicted or invalidated. `Ctrl+R` or the visible Refresh/Retry row explicitly regenerates the
   current provider. Static menus do not launch a provider on refresh.
 - `Escape` clears a nonempty query first; at an empty query it returns to parent,
   or exits at root. Each submenu also has an accessible Back row. `Ctrl+C`, empty
@@ -84,7 +85,7 @@ Nonzero exit, malformed JSON/UTF-8/schema, oversized output, timeout and excessi
 nesting all fail without replacing the previous snapshot. Display control
 characters and invalid environment keys are rejected by the shared parser.
 
-Limits: stdout 1 MiB, at most 1,000 entries per menu, at most 16 active/static menu
+Limits: cache 128 menu frames, JSON 64 container levels, stdout 1 MiB, at most 1,000 entries per menu, at most 16 active/static menu
 levels including root; integer `timeout_seconds` is 1–300, default 10. Each process
 uses an owned POSIX process group or Windows kill-on-close job. Cleanup runs after
 success, failure, cancellation and timeout, including descendants holding stdout.
@@ -97,3 +98,17 @@ access is provisioned by this feature.
 This is the shared design contract. Runtime coverage, benchmarks, mutation evidence
 and artifact verification must be recorded separately for each final feature head;
 the modernization's green checks do not establish this feature's parity or release.
+
+
+## Terminal protocol limit
+
+Legacy pseudoterminals can interpret raw Escape followed immediately by a digit
+as a single Alt-modified key sequence. An exploratory `ESC+0` byte-burst test did
+not exit either runtime under Windows ConPTY; the query was retained instead.
+This byte stream cannot reliably encode both a physical Alt key and two separate
+keypresses. Tests therefore observe the cleared prompt between Escape and numeric
+selection, and separately verify queued-character handling at the decoder boundary.
+No universal fast-Escape behavior is claimed across terminal protocols. Real parent
+query restoration, Back, numeric selection, refresh and interrupted flows remain
+covered through actual terminals; physical keyboards/screen readers need separate
+validation.
