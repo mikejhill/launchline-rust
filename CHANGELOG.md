@@ -18,11 +18,11 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ### Changed
 
-- **Rewritten from Python to Rust** for near-instant startup (~14ms vs ~150ms).
+- **Rewritten from Python to Rust** for native execution; measured results are recorded in docs/validation.
   The TOML config format is fully compatible — existing config files work unchanged.
 - Pre-built binaries for 6 platforms: Windows (x64, ARM64), macOS (x64, ARM64),
   Linux (x64, ARM64)
-- Release workflow now produces GitHub Release binaries instead of PyPI packages
+- Release workflow publishes tested source crates only to crates.io, with immutable source tags
 
 ### Added
 

@@ -16,7 +16,7 @@ concurrency:
 jobs:
   check:
     runs-on: ${{ matrix.os }}
-    timeout-minutes: 20
+    timeout-minutes: 30
     strategy:
       fail-fast: false
       matrix:
@@ -42,38 +42,24 @@ jobs:
     - run: cargo clippy --locked --all-targets -- -D warnings
     - run: cargo test --locked
     - run: cargo build --locked --release
-    - name: Build archive target
-      shell: bash
-      env:
-        TARGET: ${{ matrix.target }}
-        ARTIFACT: ${{ matrix.artifact }}
-      run: cargo build --locked --release --target "$TARGET"
-    - name: Verify native archive
-      env:
-        TARGET: ${{ matrix.target }}
-        ARTIFACT: ${{ matrix.artifact }}
-      run: uv run --locked --project pypi python scripts/package_binary.py
-    - name: Build wrapper distributions
-      run: uv build --project pypi --out-dir pypi/dist
-    - name: Verify installed wrapper with actual archive
-      env:
-        TARGET: ${{ matrix.target }}
-        ARTIFACT: ${{ matrix.artifact }}
-      run: uv run --locked --project pypi python scripts/wrapper_smoke.py
-    - name: Format and lint wrapper and tooling
-      run: |
-        uv run --locked --project pypi ruff format --check pypi/src pypi/tests scripts
+    - name: Format and lint retained test tooling
+      run: 'uv run --locked --project pypi ruff format --check pypi/src pypi/tests scripts
+
         uv run --locked --project pypi ruff check pypi/src pypi/tests scripts
+
+        '
     - name: Check Python wrapper source
       run: uv run --locked --project pypi ty check pypi/src
-    - run: cargo package --locked --allow-dirty
-    - run: uv run --locked --project pypi --group dev pytest pypi/tests --junitxml=junit.xml
+    - name: Build verified Cargo archive
+      run: uv run --locked --project pypi python scripts/build_crate.py
+    - name: Clean install and test packaged Cargo application
+      run: uv run --locked --project pypi python scripts/crate_install_smoke.py
     - run: uv run --project pypi python scripts/mutation_check.py rust
       if: matrix.os == 'windows-latest'
     - name: Check seeded menu mutations
       run: uv run --locked --project pypi python scripts/mutate_menus.py rust
       if: matrix.os == 'windows-latest'
-    - name: Wrapper test results
+    - name: Native installed-package and policy test results
       if: always()
       uses: mikepenz/action-junit-report@6ef3fdcfcd5f0b5d14df3e659ef19b8c6820f93d
       with:
@@ -85,6 +71,8 @@ jobs:
       if: always()
       with:
         name: evidence-${{ matrix.os }}
-        path: junit.xml
+        path: 'junit.xml
+
+          docs/validation/*json'
         if-no-files-found: error
     name: Check

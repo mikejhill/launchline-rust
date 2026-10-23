@@ -38,36 +38,31 @@ instead.
 
 ## Installation
 
-### Download a binary (recommended)
+### Install the native Rust application
 
-Grab the latest release for your platform from
-[GitHub Releases](https://github.com/mikejhill/launchline/releases) and place it
-somewhere on your `PATH`.
+Rust releases are published only to crates.io as crate `launchline`:
 
-### Build from source
+```sh
+cargo install launchline --locked
+```
 
-Requires [Rust](https://rustup.rs/) 1.85 or later.
+Cargo builds the native executable. The CI-validated build toolchain is Rust 1.99.1;
+the installed application does not require Python. Source version tags identify
+published crates; this repository does not publish standalone GitHub binary releases.
+
+### Build a checkout
 
 ```sh
 git clone https://github.com/mikejhill/launchline-rust.git
 cd launchline-rust
-cargo build --release
-# Binary is at target/release/launchline (or launchline.exe on Windows)
+cargo build --release --locked
+# Binary: target/release/launchline (launchline.exe on Windows)
 ```
 
-### Install with Cargo
-
-```sh
-cargo install --git https://github.com/mikejhill/launchline-rust.git
-```
-
-### Install with pip
-
-A thin Python wrapper downloads the correct native binary for your platform:
-
-```sh
-pip install launchline
-```
+The separate [Python implementation](https://github.com/mikejhill/launchline) is
+installed from PyPI with `pip install launchline`. The former Rust Python-download
+wrapper is retained as historical source/test tooling and is not published.
+See [release process and registry setup](docs/releasing.md).
 
 ## Quick Start
 

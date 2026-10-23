@@ -1,7 +1,10 @@
 {
   "plugins": {
     "provider": {
-      "name": "github@1.19.0"
+      "name": "git@1.13.0",
+      "options": {
+        "default_branch": "main"
+      }
     },
     "commit-analyzer": {
       "name": "default@1.15.0"

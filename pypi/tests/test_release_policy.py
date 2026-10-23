@@ -1,111 +1,246 @@
-"""Offline simulations of the actual publisher shell and credential boundaries."""
+"""Offline tests of exact crate upload bytes, retries and publisher boundaries."""
 
 from __future__ import annotations
 
+import hashlib
+import importlib.util
+import io
+import json
 import os
 import shutil
+import struct
 import subprocess
 import sys
+import urllib.error
 from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 import yaml
 
 
-class TestPublisherPolicy:
-    """Exercise actual workflow shell commands with every GitHub call replaced."""
+class TestCratePublisher:
+    """Intercept every registry call while executing the production upload helper."""
+
+    @staticmethod
+    def _module() -> object:
+        """Load the checked-in standard-library-only publisher."""
+        root = Path(__file__).resolve().parents[2]
+        spec = importlib.util.spec_from_file_location(
+            "crate_upload", root / "scripts/crate_upload.py"
+        )
+        assert spec is not None and spec.loader is not None
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        return module
+
+    @staticmethod
+    def _bundle(path: Path) -> str:
+        """Prepare harmless archive bytes and their exact release identity."""
+        payload = b"tested crate bytes"
+        digest = hashlib.sha256(payload).hexdigest()
+        (path / "launchline-0.1.0.crate").write_bytes(payload)
+        (path / "publish.json").write_text(
+            json.dumps(
+                {
+                    "crate_file": "launchline-0.1.0.crate",
+                    "source_sha": "a" * 40,
+                    "sha256": digest,
+                    "package": {
+                        "name": "launchline",
+                        "vers": "0.1.0",
+                        "repository": "https://github.com/mikejhill/launchline-rust",
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        return digest
 
     @pytest.mark.parametrize(
-        ("scenario", "expected", "publishes"),
+        "scenario",
         [
-            ("normal", 0, True),
-            ("tag-conflict", 1, False),
-            ("not-on-main", 1, False),
-            ("retry", 0, True),
+            "new",
+            "retry",
+            "conflict",
+            "tamper",
+            "wrong-source",
+            "inspection-denied",
+            "upload-uncertain",
         ],
     )
-    def test_publisher_refuses_conflicts_and_accepts_same_commit_retry(
-        self, scenario: str, expected: int, publishes: bool, tmp_path: Path
+    def test_real_upload_protocol_and_fail_closed_retry(
+        self, scenario: str, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
     ) -> None:
-        """Only a current main ancestor and matching tag can reach upload."""
+        """Only validated bytes can reach the fixed authenticated PUT endpoint."""
+        module = self._module()
+        digest = self._bundle(tmp_path)
+        monkeypatch.setenv("VERSION", "0.1.0")
+        monkeypatch.setenv(
+            "GITHUB_SHA", "b" * 40 if scenario == "wrong-source" else "a" * 40
+        )
+        monkeypatch.setenv("CRATES_IO_TOKEN", "offline-fixture-token")
+        if scenario == "tamper":
+            (tmp_path / "launchline-0.1.0.crate").write_bytes(b"tampered")
+        calls: list[object] = []
+
+        class Registry:
+            """A deterministic registry boundary, never a network server."""
+
+            def open(self, request: object, timeout: int) -> io.BytesIO:
+                """Capture the exact framed request and emulate registry states."""
+                assert timeout in (30, 60), "Every request must be bounded"
+                calls.append(request)
+                if request.get_method() == "PUT":
+                    assert request.full_url == "https://crates.io/api/v1/crates/new"
+                    assert (
+                        request.get_header("Authorization") == "offline-fixture-token"
+                    )
+                    data = request.data
+                    length = struct.unpack("<I", data[:4])[0]
+                    assert json.loads(data[4 : 4 + length])["vers"] == "0.1.0"
+                    offset = 4 + length
+                    size = struct.unpack("<I", data[offset : offset + 4])[0]
+                    assert data[offset + 4 :] == b"tested crate bytes" and size == len(
+                        b"tested crate bytes"
+                    )
+                    if scenario == "upload-uncertain":
+                        raise urllib.error.URLError("fixture connection closed")
+                    return io.BytesIO(b"{}")
+                assert request.get_header("Authorization") is None, (
+                    "Public inspection must not disclose the token"
+                )
+                if scenario == "inspection-denied":
+                    raise urllib.error.HTTPError(
+                        request.full_url, 403, "fixture", {}, None
+                    )
+                if scenario == "conflict":
+                    return io.BytesIO(b'{"version":{"checksum":"different"}}')
+                if scenario == "retry" or any(
+                    call.get_method() == "PUT" for call in calls
+                ):
+                    return io.BytesIO(
+                        json.dumps({"version": {"checksum": digest}}).encode()
+                    )
+                raise urllib.error.HTTPError(request.full_url, 404, "fixture", {}, None)
+
+        registry = Registry()
+        with patch.object(module.urllib.request, "build_opener", return_value=registry):
+            if scenario in ("new", "retry"):
+                module.CrateUpload.publish(tmp_path)
+            else:
+                with pytest.raises((ValueError, RuntimeError)):
+                    module.CrateUpload.publish(tmp_path)
+        puts = [call for call in calls if call.get_method() == "PUT"]
+        assert len(puts) == (1 if scenario in ("new", "upload-uncertain") else 0), (
+            "Never blindly retry uncertain uploads"
+        )
+
+    def test_authenticated_redirects_are_rejected(self) -> None:
+        """A registry redirect cannot forward authorization to another origin."""
+        module = self._module()
+        assert (
+            module.NoRedirect().redirect_request(
+                None, None, 302, "redirect", {}, "https://example.invalid"
+            )
+            is None
+        )
+
+    def test_workflow_runs_only_pinned_isolated_publisher(self) -> None:
+        """No wrapper/binary publisher or checked-out package code receives credentials."""
         root = Path(__file__).resolve().parents[2]
         workflow = yaml.safe_load(
             (root / ".github/workflows/release.yml").read_text(encoding="utf-8")
         )
-        publisher = workflow["jobs"]["github-release"]
-        assert "github.actor == 'mikejhill'" in publisher["if"], (
-            "Owner gate is required"
+        assert (
+            "pypi" not in workflow["jobs"] and "github-release" not in workflow["jobs"]
         )
-        assert "github.triggering_actor == 'mikejhill'" in publisher["if"], (
-            "Rerun owner gate is required"
-        )
+        publisher = workflow["jobs"]["crates"]
+        assert "github.actor == 'mikejhill'" in publisher["if"]
+        assert "github.triggering_actor == 'mikejhill'" in publisher["if"]
+        assert publisher["environment"] == "crates-io"
+        assert publisher["permissions"] == {"contents": "read", "id-token": "write"}
         assert not any(
             "checkout@" in step.get("uses", "") for step in publisher["steps"]
-        ), "Publisher must not execute checked-out repository code"
-        body = next(step["run"] for step in publisher["steps"] if "run" in step)
-        release = tmp_path / "release"
-        (release / "dist").mkdir(parents=True)
-        (release / "release-notes.md").write_text(
-            "Reviewed fixture notes", encoding="utf-8"
         )
-        (release / "dist/fixture.whl").write_bytes(b"fixture")
-        for extension in ["tar.gz", "zip", "whl"]:
-            (release / f"fixture.{extension}").write_bytes(b"offline fixture")
-        log = tmp_path / "github-calls"
-        python_path = str(Path(sys.executable)).replace("\\", "/")
+        body = next(
+            step["run"]
+            for step in publisher["steps"]
+            if step.get("name")
+            == "Publish prebuilt archive without executing package code"
+        )
+        expected = (
+            "python3 - <<'PY'\n"
+            + (root / "scripts/crate_upload.py").read_text(encoding="utf-8")
+            + "\nPY\n"
+        )
+        assert body == expected, (
+            "Offline protocol tests must exercise the actual inline publisher"
+        )
+        assert "cargo publish" not in body and "subprocess" not in body, (
+            "Publisher uploads already-compiled bytes only"
+        )
+        assert workflow["jobs"]["build"]["if"].endswith(
+            "needs.target.outputs.version != ''"
+        ), "Non-release commits must not publish"
+
+
+class TestSourceTagPolicy:
+    """Execute the actual source-tag shell against an offline GitHub boundary."""
+
+    @pytest.mark.parametrize(
+        ("scenario", "expected"),
+        [("normal", 0), ("retry", 0), ("tag-conflict", 1), ("not-on-main", 1)],
+    )
+    def test_source_tags_require_matching_ancestry(
+        self, scenario: str, expected: int, tmp_path: Path
+    ) -> None:
+        """Conflicting refs fail and source-only retries preserve immutable tags."""
+        root = Path(__file__).resolve().parents[2]
+        workflow = yaml.safe_load(
+            (root / ".github/workflows/release.yml").read_text(encoding="utf-8")
+        )
+        job = workflow["jobs"]["source-tag"]
+        assert job["permissions"] == {"contents": "write"}
+        body = job["steps"][0]["run"]
         fake = r"""
 set -euo pipefail
 python3() { "$FIXTURE_PYTHON" "$@"; }
 gh() {
-  printf '%s\n' "$*" >> "$FIXTURE_LOG"
   case "$*" in
     "api repos/fixture/launchline/compare/"*)
-      if [ "$SCENARIO" = not-on-main ]; then
-        echo bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
-      else echo "$GITHUB_SHA"; fi ;;
+      if [ "$SCENARIO" = not-on-main ]; then echo bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb; else echo "$GITHUB_SHA"; fi ;;
     "api --method POST"*)
-      if [ "$SCENARIO" = tag-conflict ] || [ "$SCENARIO" = retry ]; then return 1; fi ;;
+      if [ "$SCENARIO" = retry ] || [ "$SCENARIO" = tag-conflict ]; then return 1; fi ;;
     "api repos/fixture/launchline/commits/"*)
-      if [ "$SCENARIO" = tag-conflict ]; then
-        echo bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb
-      else echo "$GITHUB_SHA"; fi ;;
-    "release view"*) [ "$SCENARIO" = retry ] ;;
-    "release create"*) return 0 ;;
-    "release upload"*) return 0 ;;
-    *) echo "Unexpected offline GitHub call" >&2; return 99 ;;
+      if [ "$SCENARIO" = tag-conflict ]; then echo bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb; else echo "$GITHUB_SHA"; fi ;;
+    *) echo 'Unexpected offline GitHub call' >&2; return 99 ;;
   esac
 }
 """
-        if sys.platform == "win32":
-            bash = str(Path(os.environ["PROGRAMFILES"]) / "Git/bin/bash.exe")
-        else:
-            bash = shutil.which("bash")
-            assert bash is not None, "Publisher simulations require Bash"
+        bash = (
+            str(Path(os.environ["PROGRAMFILES"]) / "Git/bin/bash.exe")
+            if sys.platform == "win32"
+            else shutil.which("bash")
+        )
+        assert bash is not None
         result = subprocess.run(
             [bash, "-c", fake + body],
             cwd=tmp_path,
             env={
                 **os.environ,
-                "FIXTURE_PYTHON": python_path,
-                "FIXTURE_LOG": str(log).replace("\\", "/"),
+                "FIXTURE_PYTHON": str(Path(sys.executable)).replace("\\", "/"),
                 "SCENARIO": scenario,
                 "GITHUB_SHA": "a" * 40,
                 "GITHUB_REPOSITORY": "fixture/launchline",
                 "TAG": "v0.1.0",
-                "GH_TOKEN": "offline-fixture",
             },
             capture_output=True,
             text=True,
             check=False,
+            timeout=30,
         )
         assert result.returncode == expected, result.stderr
-        calls = log.read_text(encoding="utf-8")
-        assert ("release upload" in calls) == publishes, calls
-        if scenario == "normal":
-            assert "--generate-notes" in calls, (
-                "Generated release notes must be retained"
-            )
-        if scenario == "retry":
-            assert "release create" not in calls, (
-                "Retry must reuse the matching existing release"
-            )
+        assert "release create" not in body and "release upload" not in body, (
+            "Source tags must not publish GitHub binary distributions"
+        )

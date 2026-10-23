@@ -1,36 +1,9 @@
-# LaunchLine (PyPI wrapper)
+# Retained Rust wrapper source and test tooling
 
-A lightweight launcher for interactive CLI tools.
-
-This package is a **thin wrapper** that downloads and runs the pre-built native
-binary from [GitHub Releases](https://github.com/mikejhill/launchline/releases).
-The actual application is written in Rust for near-instant startup.
-
-## Installation
-
-```bash
-pip install launchline
-```
-
-On first run, the native binary is downloaded and cached automatically.
-
-## Usage
-
-```bash
-launchline
-```
-
-See the [main repository](https://github.com/mikejhill/launchline) for full
-documentation, configuration, and development instructions.
-
-## Supported Platforms
-
-| OS      | Architecture |
-| ------- | ------------ |
-| Linux   | x64, ARM64   |
-| macOS   | x64, ARM64   |
-| Windows | x64, ARM64   |
-
-## License
-
-[MIT](https://github.com/mikejhill/launchline/blob/main/LICENSE)
+This historical wrapper is not published. Rust LaunchLine is distributed only as
+crate `launchline` on crates.io: `cargo install launchline --locked`.
+Its native executable has no Python runtime dependency. This directory retains
+development dependencies, terminal tests and old wrapper compatibility tests.
+The Python implementation remains a separate PyPI `launchline` project.
+See [the Rust repository](https://github.com/mikejhill/launchline-rust) and
+[release process](../docs/releasing.md).

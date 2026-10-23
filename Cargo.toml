@@ -2,6 +2,9 @@
 name = "launchline"
 version = "0.3.0"
 edition = "2024"
+rust-version = "1.99.1"
+publish = ["crates-io"]
+include = ["src/**", "tests/**", "examples/**", "assets/**", "docs/**", "Cargo.toml", "Cargo.lock", "LICENSE", "README.md", "CHANGELOG.md"]
 description = "A lightweight terminal launcher for interactive CLI tools."
 license = "MIT"
 readme = "README.md"

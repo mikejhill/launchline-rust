@@ -12,12 +12,12 @@ class VersionMetadata:
 
     @staticmethod
     def main() -> None:
-        """Require a semantic version and update Rust and wrapper metadata."""
+        """Require a semantic version and update Rust package metadata."""
         version = os.environ["VERSION"]
         if re.fullmatch(r"[0-9]+\.[0-9]+\.[0-9]+", version) is None:
             raise ValueError("Expected a numeric semantic version")
         root = Path(__file__).resolve().parents[1]
-        for relative in ["Cargo.toml", "pypi/pyproject.toml"]:
+        for relative in ["Cargo.toml"]:
             path = root / relative
             source = path.read_text(encoding="utf-8")
             updated, count = re.subn(
