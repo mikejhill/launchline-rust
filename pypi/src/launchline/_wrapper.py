@@ -6,6 +6,7 @@ import hashlib
 import io
 import os
 import platform
+import signal
 import stat
 import subprocess
 import sys
@@ -206,6 +207,9 @@ class NativeLauncher:
             sys.stderr.write(f"launchline: failed to obtain binary: {exc}\n")
             sys.exit(1)
 
+        # The native foreground application owns Ctrl+C and restart semantics.
+        # A waiting wrapper must not turn a recovered tool interrupt into exit 130.
+        previous = signal.signal(signal.SIGINT, signal.SIG_IGN)
         try:
             result = subprocess.run([str(binary), *sys.argv[1:]], check=False)
         except OSError as exc:
@@ -213,6 +217,8 @@ class NativeLauncher:
             raise SystemExit(1) from exc
         except KeyboardInterrupt as exc:
             raise SystemExit(130) from exc
+        finally:
+            signal.signal(signal.SIGINT, previous)
         sys.exit(result.returncode)
 
 
