@@ -73,3 +73,5 @@ release/
 .semrel/
 .version
 release-changelog.md
+
+/crate-release/
