@@ -10,6 +10,7 @@ import subprocess
 import sys
 import tempfile
 import tomllib
+from importlib.metadata import version as installed_version
 from pathlib import Path
 from unittest.mock import patch
 
@@ -83,6 +84,55 @@ class WrapperSmoke:
                 if arguments == ["--icon-path"]:
                     assert Path(result.stdout.strip()).is_file(), result.stdout
                 records.append({"args": arguments, "exit": result.returncode})
+            # Exercise the console shim and actual archive together, including
+            # interrupted foreground tools; direct native tests miss wrapper signals.
+            installed = directory / "installed"
+            subprocess.run(
+                ["uv", "venv", "--python", sys.executable, str(installed)],
+                check=True,
+                timeout=60,
+            )
+            scripts = installed / ("Scripts" if sys.platform == "win32" else "bin")
+            interpreter = scripts / (
+                "python.exe" if sys.platform == "win32" else "python"
+            )
+            subprocess.run(
+                [
+                    "uv",
+                    "pip",
+                    "install",
+                    "--python",
+                    str(interpreter),
+                    str(wheel),
+                    f"pytest=={installed_version('pytest')}",
+                    f"pywinpty=={installed_version('pywinpty')}"
+                    if sys.platform == "win32"
+                    else f"pexpect=={installed_version('pexpect')}",
+                ],
+                check=True,
+                timeout=120,
+            )
+            launcher = scripts / (
+                "launchline.exe" if sys.platform == "win32" else "launchline"
+            )
+            subprocess.run(
+                [
+                    str(interpreter),
+                    "-m",
+                    "pytest",
+                    str(root / "pypi/tests/test_terminal_e2e.py"),
+                    "-o",
+                    "addopts=",
+                    "-q",
+                ],
+                cwd=directory,
+                env={**environment, "LAUNCHLINE_RUST": str(launcher)},
+                check=True,
+                timeout=180,
+            )
+            records.append(
+                {"installed_terminal_suite": "passed", "network": "offline runtime"}
+            )
         (root / "docs/validation/wrapper-smoke.json").write_text(
             json.dumps(records, indent=2), encoding="utf-8"
         )
