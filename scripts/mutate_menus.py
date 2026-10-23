@@ -147,9 +147,10 @@ class MenuMutation:
         try:
             for module, name, old, new in mutants:
                 path = files[module]
-                path.write_text(
-                    originals[module].decode("utf-8").replace(old, new, 1),
-                    encoding="utf-8",
+                # Preserve checkout newlines: write_text on Windows would turn
+                # decoded CRLF into CRCRLF and create invalid Rust mutants.
+                path.write_bytes(
+                    originals[module].replace(old.encode(), new.encode(), 1)
                 )
                 try:
                     result = subprocess.run(

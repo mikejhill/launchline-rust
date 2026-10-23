@@ -90,3 +90,16 @@ All 58 reported Python dependency findings apply to the old lock; Pillow 13.0.0
 and pytest 9.1.1 are outside the reported ranges. Rust's latent pytest 8.4.2 lock
 fallback was also removed without raising its packaged Python >=3.9 requirement.
 See dependency-triage.md and per-advisory dependency-alerts.json for exact exposure.
+
+
+## Windows mutation checkout correction
+
+Feature run 39999767473 passed Linux/macOS and all 12 existing Windows mutations,
+then correctly classified all 9 menu mutants as invalid. Windows checkout CRLF
+bytes were decoded and written through write_text, producing CRCRLF and Rust
+bare-CR compilation errors. The harness now mutates raw bytes and restores the
+original bytes. A faithful local CRLF checkout run killed all 9 menu mutants and
+asserted byte-for-byte CRLF restoration before restoring the owned source files.
+The invalid hosted run is not a mutation-coverage success; the corrected head
+must pass its complete hosted gate. Packaged Python 3.9 wrapper runtime also passed
+all 16 terminal scenarios using the separate patched Python 3.12 test driver.
