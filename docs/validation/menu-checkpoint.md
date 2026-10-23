@@ -3,7 +3,7 @@
 This feature is implemented locally and awaits exact-head hosted CI and release
 ordering. Python modernization v0.3.0 is already published; Rust modernization
 remains unmerged pending the main-only `pypi` environment approval. No settings or
-publisher trust registrations were changed. Feature releases follow both modernizations.
+publisher trust registrations were changed. Python feature release follows its completed modernization; Rust feature release follows Rust modernization.
 
 | Contract | Evidence in both implementations |
 | --- | --- |
@@ -18,13 +18,12 @@ publisher trust registrations were changed. Feature releases follow both moderni
 | Packaged runtime | Both installed wheels run the terminal suite; Rust wheel forwards to the actual verified local native archive |
 
 Local gates on final production sources (October 23, MHILL-LAPTOP):
-- Python Windows: 347 passed, 1 skipped, 94.55% branch-inclusive coverage; strict
-  Ruff and ty pass. Linux/WSL: 346 passed, 2 skipped, 92.24% coverage.
+- Python Windows: 347 passed, 2 skipped, 94.12% branch-inclusive coverage; strict
+  Ruff and ty pass. Linux/WSL: 347 passed, 2 skipped, 92.32% coverage.
 - Python installed wheel: all 16 real terminal scenarios pass. `package_smoke.py`
   now enforces those scenarios in CI and release gates, in an isolated wheel environment.
 - Rust strict Clippy and rustfmt pass; 85 native unit tests, 6 baseline integration
-  tests and 9 menu integration tests pass. Wrapper suite: 47 passed, 2 skipped
-  before the wrapper signal correction; final rerun is recorded in hosted/checkpoint evidence.
+  tests and 9 menu integration tests pass. Wrapper suite: 47 passed, 2 skipped after the wrapper signal correction.
 - Rust installed wrapper/archive: all 16 terminal scenarios pass after correcting
   wrapper SIGINT ownership. `wrapper_smoke.py` now enforces these installed tests.
   The same fix is applied to the pending modernization branch, whose installed suite
@@ -71,3 +70,23 @@ connection. If absent, separate trust-creation approval is needed for PyPI proje
 `release.yml`, environment `pypi`, under maintainer account `mike12489`. Project JSON
 404 does not prove a private pending publisher is absent. Existing Python environment
 reviewer gate remains unchanged; release approval applies to individual runs.
+
+
+## Hosted follow-up
+
+First Python feature run 39998061639 passed 7/9 jobs; macOS 3.13/3.14 exposed a
+Ctrl+R timing race between first render and per-key raw mode. The corrected Python
+UI owns Unix raw input for its entire interactive session and restores settings
+before providers/tools; an actual PTY regression verifies restoration after an
+exception. Full Windows/Linux gates and 16 scenarios through the exact fresh wheel
+pass after this fix. All 21 Python seeded mutants were rerun and killed.
+
+Rust modernization run 39997787065 passed all three OS jobs at 81fb411, including
+the installed-wrapper interruption fix. Feature run 39998072302 passed Linux and
+macOS and was superseded during Windows mutations by the patched dependency lock.
+Final-head hosted results are tracked on the PRs, not inferred from those old runs.
+
+All 58 reported Python dependency findings apply to the old lock; Pillow 13.0.0
+and pytest 9.1.1 are outside the reported ranges. Rust's latent pytest 8.4.2 lock
+fallback was also removed without raising its packaged Python >=3.9 requirement.
+See dependency-triage.md and per-advisory dependency-alerts.json for exact exposure.

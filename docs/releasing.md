@@ -38,3 +38,9 @@ To reproduce a safe version fixture, explicitly set SEMREL_BIN to the verified C
 and run scripts/release_dryrun.py through the repository's uv environment. Do not
 substitute a production provider or run publication commands as a dry run. A failed
 production upload should be retried on its original run; never move an existing tag.
+
+## Development tool security update
+
+Development dependency applicability and patched locks are recorded in
+[dependency triage](validation/dependency-triage.md). Rust wrapper development now
+requires Python >=3.10 for patched pytest; packaged wrapper runtime remains >=3.9.
