@@ -267,15 +267,34 @@ class TestReleaseCheckParity:
 class TestPreUploadSourcePolicy:
     """Run the actual pre-authentication main/tag boundary without network calls."""
 
-    @pytest.mark.parametrize(("scenario", "expected"), [("normal", 0), ("tag-conflict", 1), ("not-on-main", 1)])
-    def test_preflight_rejects_conflicting_source_before_oidc(self, scenario: str, expected: int, tmp_path: Path) -> None:
+    @pytest.mark.parametrize(
+        ("scenario", "expected"),
+        [("normal", 0), ("tag-conflict", 1), ("not-on-main", 1)],
+    )
+    def test_preflight_rejects_conflicting_source_before_oidc(
+        self, scenario: str, expected: int, tmp_path: Path
+    ) -> None:
         root = Path(__file__).resolve().parents[2]
-        workflow = yaml.safe_load((root / ".github/workflows/release.yml").read_text(encoding="utf-8"))
+        workflow = yaml.safe_load(
+            (root / ".github/workflows/release.yml").read_text(encoding="utf-8")
+        )
         steps = workflow["jobs"]["crates"]["steps"]
-        body = next(step["run"] for step in steps if step.get("name") == "Validate source ancestry and immutable tag boundary")
-        auth = next(index for index, step in enumerate(steps) if step.get("id") == "auth")
-        validation = next(index for index, step in enumerate(steps) if step.get("name") == "Validate artifact before requesting credentials")
-        assert validation < auth, "Validate untrusted artifact bytes before acquiring a publishing credential"
+        body = next(
+            step["run"]
+            for step in steps
+            if step.get("name") == "Validate source ancestry and immutable tag boundary"
+        )
+        auth = next(
+            index for index, step in enumerate(steps) if step.get("id") == "auth"
+        )
+        validation = next(
+            index
+            for index, step in enumerate(steps)
+            if step.get("name") == "Validate artifact before requesting credentials"
+        )
+        assert validation < auth, (
+            "Validate untrusted artifact bytes before acquiring a publishing credential"
+        )
         fake = r"""
 set -euo pipefail
 gh() {
@@ -288,9 +307,26 @@ gh() {
   esac
 }
 """
-        bash = str(Path(os.environ["PROGRAMFILES"]) / "Git/bin/bash.exe") if sys.platform == "win32" else shutil.which("bash")
+        bash = (
+            str(Path(os.environ["PROGRAMFILES"]) / "Git/bin/bash.exe")
+            if sys.platform == "win32"
+            else shutil.which("bash")
+        )
         assert bash is not None
-        result = subprocess.run([bash, "-c", fake + body], cwd=tmp_path, env={**os.environ,
-            "SCENARIO":scenario, "GITHUB_SHA":"a"*40, "GITHUB_REPOSITORY":"fixture/launchline",
-            "TAG":"v0.1.0", "VERSION":"0.1.0"}, capture_output=True, text=True, check=False, timeout=30)
+        result = subprocess.run(
+            [bash, "-c", fake + body],
+            cwd=tmp_path,
+            env={
+                **os.environ,
+                "SCENARIO": scenario,
+                "GITHUB_SHA": "a" * 40,
+                "GITHUB_REPOSITORY": "fixture/launchline",
+                "TAG": "v0.1.0",
+                "VERSION": "0.1.0",
+            },
+            capture_output=True,
+            text=True,
+            check=False,
+            timeout=30,
+        )
         assert result.returncode == expected, result.stderr
