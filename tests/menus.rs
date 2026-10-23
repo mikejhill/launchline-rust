@@ -168,7 +168,10 @@ fn native_probe() -> &'static Path {
     static PROBE: OnceLock<PathBuf> = OnceLock::new();
     PROBE.get_or_init(|| {
         let directory = PathBuf::from(env!("CARGO_MANIFEST_DIR"));
-        let executable = directory.join("target").join(if cfg!(windows) {
+        let output_directory = directory.join("target");
+        std::fs::create_dir_all(&output_directory)
+            .expect("Provider probe output directory must be available in extracted crates");
+        let executable = output_directory.join(if cfg!(windows) {
             "menu-provider-probe.exe"
         } else {
             "menu-provider-probe"
