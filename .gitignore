@@ -66,3 +66,14 @@ pypi/**/__pycache__/
 pypi/**/*.egg-info/
 pypi/dist/
 pypi/build/
+
+junit.xml
+release/
+
+.semrel/
+.version
+release-changelog.md
+
+/crate-release/
+
+**/__pycache__/

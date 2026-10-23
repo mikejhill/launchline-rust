@@ -3,7 +3,7 @@ use std::path::{Path, PathBuf};
 /// Expand a leading `~` in a path to the user's home directory.
 pub fn expand_tilde(path: &Path) -> PathBuf {
     let s = path.to_string_lossy();
-    if s.starts_with('~')
+    if (s == "~" || s.starts_with("~/") || s.starts_with("~\\"))
         && let Some(home) = dirs::home_dir()
     {
         let rest = s
@@ -18,7 +18,7 @@ pub fn expand_tilde(path: &Path) -> PathBuf {
 
 /// Expand a leading `~` in a string to the user's home directory.
 pub fn expand_tilde_str(s: &str) -> String {
-    if s.starts_with('~')
+    if (s == "~" || s.starts_with("~/") || s.starts_with("~\\"))
         && let Some(home) = dirs::home_dir()
     {
         let rest = s

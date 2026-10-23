@@ -1,129 +1,264 @@
 name: Release
-
-on:
+'on':
+  push:
+    branches:
+    - main
   workflow_dispatch:
     inputs:
       force-patch:
-        description: "Force a patch version bump (use when only docs/test/chore commits exist)"
+        description: Force patch bump when no releasable commits exist
         type: boolean
         default: false
-
 permissions:
-  contents: write
-
+  contents: read
+concurrency:
+  group: release
+  cancel-in-progress: false
 jobs:
-  determine-version:
+  target:
+    if: github.ref == 'refs/heads/main' && github.actor == 'mikejhill' && github.triggering_actor == 'mikejhill'
     runs-on: ubuntu-latest
+    timeout-minutes: 20
     outputs:
       version: ${{ steps.semrel.outputs.version }}
+      notes-id: ${{ steps.notes.outputs.artifact-id }}
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+        fetch-depth: 0
+        ref: ${{ github.sha }}
+    - name: Download checksum-pinned semantic-release CLI
+      shell: bash
+      run: "set -euo pipefail\ndest=\"$RUNNER_TEMP/semantic-release-v2.31.0\"\ncurl --fail --silent --show-error --location --proto '=https' --tlsv1.2 \\\n  https://github.com/go-semantic-release/semantic-release/releases/download/v2.31.0/semantic-release_v2.31.0_linux_amd64 \\\n  --output \"$dest\"\nprintf '%s  %s\\n' 'b8f518b1aeb1d1742f4e6e91a179b707cea4309a64fe3854f465bf724f04f6d3' \"$dest\" | sha256sum --check --strict\nchmod 0755 \"$dest\"\n"
+    - name: Preload verified runtime plugins
+      run: python3 scripts/prepare_semrel.py
+    - name: Determine version without publishing
+      id: semrel
+      shell: bash
+      env:
+        FORCE_PATCH: ${{ inputs.force-patch || false }}
+      run: 'set -euo pipefail
 
-      - name: Determine next version
-        id: semrel
-        uses: go-semantic-release/action@v1
-        with:
-          github-token: ${{ secrets.GITHUB_TOKEN }}
-          allow-initial-development-versions: true
-          force-bump-patch-version: ${{ inputs.force-patch }}
-          dry: true
+        args=(--dry --no-ci --no-ci --allow-initial-development-versions --changelog release-changelog.md --allow-no-changes --plugin-resolver-disable-batch-prefetch)
 
-      - name: Require new version
-        if: steps.semrel.outputs.version == ''
-        run: |
-          echo "::error::No new version to release."
-          exit 1
+        if [ "$FORCE_PATCH" = true ]; then args+=(--force-bump-patch-version); fi
 
-  build-binaries:
-    needs: determine-version
+        "$RUNNER_TEMP/semantic-release-v2.31.0" "${args[@]}"
+
+        python3 scripts/release_version.py
+
+        '
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      id: notes
+      if: steps.semrel.outputs.version != ''
+      with:
+        name: release-target-notes
+        path: release-changelog.md
+        if-no-files-found: error
+        retention-days: 7
+    name: Target
+  ci:
     runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
     strategy:
+      fail-fast: false
       matrix:
         include:
-          - os: ubuntu-latest
-            target: x86_64-unknown-linux-gnu
-            artifact: launchline-linux-x64
-          - os: ubuntu-latest
-            target: aarch64-unknown-linux-gnu
-            artifact: launchline-linux-arm64
-          - os: windows-latest
-            target: x86_64-pc-windows-msvc
-            artifact: launchline-windows-x64
-          - os: windows-latest
-            target: aarch64-pc-windows-msvc
-            artifact: launchline-windows-arm64
-          - os: macos-latest
-            target: x86_64-apple-darwin
-            artifact: launchline-macos-x64
-          - os: macos-latest
-            target: aarch64-apple-darwin
-            artifact: launchline-macos-arm64
+        - os: ubuntu-latest
+          target: x86_64-unknown-linux-gnu
+          artifact: launchline-linux-x64
+        - os: windows-latest
+          target: x86_64-pc-windows-msvc
+          artifact: launchline-windows-x64
+        - os: macos-latest
+          target: aarch64-apple-darwin
+          artifact: launchline-macos-arm64
     steps:
-      - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          targets: ${{ matrix.target }}
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+        ref: ${{ github.sha }}
+    - name: Install pinned Rust toolchain
+      run: rustup toolchain install 1.99.1 --profile minimal --component rustfmt --component clippy
+    - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e
+    - run: cargo fmt --check
+    - run: cargo clippy --locked --all-targets -- -D warnings
+    - run: cargo test --locked
+    - run: cargo build --locked --release
+    - name: Format and lint retained test tooling
+      run: 'uv run --locked --project pypi ruff format --check pypi/src pypi/tests scripts
 
-      - name: Install cross-compilation tools (Linux ARM64)
-        if: matrix.target == 'aarch64-unknown-linux-gnu'
-        run: sudo apt-get update && sudo apt-get install -y gcc-aarch64-linux-gnu
+        uv run --locked --project pypi ruff check pypi/src pypi/tests scripts
 
-      - name: Build release binary
-        run: cargo build --release --target ${{ matrix.target }}
-        env:
-          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_LINKER: aarch64-linux-gnu-gcc
+        '
+    - name: Check Python wrapper source
+      run: uv run --locked --project pypi ty check pypi/src
+    - name: Build verified Cargo archive
+      run: uv run --locked --project pypi python scripts/build_crate.py
+    - name: Cargo registry publication dry-run without credentials
+      run: cargo publish --dry-run --locked --allow-dirty
+    - name: Clean install and test packaged Cargo application
+      run: uv run --locked --project pypi python scripts/crate_install_smoke.py
+    - run: uv run --project pypi python scripts/mutation_check.py rust
+      if: matrix.os == 'windows-latest'
+    - name: Native installed-package and policy test results
+      if: always()
+      uses: mikepenz/action-junit-report@6ef3fdcfcd5f0b5d14df3e659ef19b8c6820f93d
+      with:
+        report_paths: junit.xml
+        annotate_only: true
+        check_annotations: false
+        require_tests: true
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      if: always()
+      with:
+        name: evidence-${{ matrix.os }}
+        path: 'junit.xml
 
-      - name: Package binary (Unix)
-        if: runner.os != 'Windows'
-        run: |
-          cd target/${{ matrix.target }}/release
-          tar czf ../../../${{ matrix.artifact }}.tar.gz launchline
-          cd ../../..
-
-      - name: Package binary (Windows)
-        if: runner.os == 'Windows'
-        run: |
-          cd target/${{ matrix.target }}/release
-          Compress-Archive -Path launchline.exe -DestinationPath ../../../${{ matrix.artifact }}.zip
-          cd ../../..
-
-      - uses: actions/upload-artifact@v4
-        with:
-          name: ${{ matrix.artifact }}
-          path: |
-            ${{ matrix.artifact }}.tar.gz
-            ${{ matrix.artifact }}.zip
-
-  release:
-    needs: [determine-version, build-binaries]
+          docs/validation/*json'
+        if-no-files-found: error
+    name: Check
+  build:
+    name: Build tested crate without publishing credentials
+    needs:
+    - target
+    - ci
+    if: github.ref == 'refs/heads/main' && github.actor == 'mikejhill' && github.triggering_actor == 'mikejhill' && needs.target.outputs.version != ''
     runs-on: ubuntu-latest
+    timeout-minutes: 30
+    outputs:
+      artifact-id: ${{ steps.crate.outputs.artifact-id }}
     steps:
-      - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
+    - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
+      with:
+        persist-credentials: false
+        ref: ${{ github.sha }}
+    - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e
+    - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+      with:
+        artifact-ids: ${{ needs.target.outputs.notes-id }}
+        path: release-target
+    - name: Retain generated notes inside the crate
+      run: cp release-target/release-changelog.md release-changelog.md
+    - name: Install pinned Rust toolchain
+      run: rustup toolchain install 1.99.1 --profile minimal
+    - name: Set ephemeral Cargo release version
+      env:
+        VERSION: ${{ needs.target.outputs.version }}
+      run: uv run --locked --project pypi python scripts/set_release_version.py
+    - name: Build exact crate and registry metadata
+      env:
+        SOURCE_SHA: ${{ github.sha }}
+      run: uv run --locked --project pypi python scripts/build_crate.py
+    - name: Verify clean installed release crate
+      run: uv run --locked --project pypi python scripts/crate_install_smoke.py --terminal-only
+    - uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9
+      id: crate
+      with:
+        name: trusted-crate
+        path: crate-release/*
+        if-no-files-found: error
+        retention-days: 7
+  attest:
+    name: Attest tested crate
+    needs: build
+    if: github.ref == 'refs/heads/main' && github.actor == 'mikejhill' && github.triggering_actor == 'mikejhill' && needs.build.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write # Ephemeral OIDC identity for this exact crate publisher or attestation.
+      attestations: write # Record provenance for the same-run tested crate.
+    steps:
+    - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+      with:
+        artifact-ids: ${{ needs.build.outputs.artifact-id }}
+        path: release
+    - uses: actions/attest@1e69f48acb82d1966a394da916b4c1698aa569d6
+      with:
+        subject-path: 'release/*.crate
 
-      - name: Create and push tag
-        run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git tag "v${{ needs.determine-version.outputs.version }}"
-          git push origin "v${{ needs.determine-version.outputs.version }}"
+          release/publish.json'
+  crates:
+    name: Publish exact tested crate to crates.io
+    needs:
+    - target
+    - build
+    - attest
+    if: github.ref == 'refs/heads/main' && github.actor == 'mikejhill' && github.triggering_actor == 'mikejhill' && needs.build.result == 'success' && needs.attest.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: crates-io
+    permissions:
+      contents: read
+      id-token: write # Ephemeral OIDC identity for this exact crate publisher or attestation.
+    steps:
+    - uses: actions/download-artifact@9000827ccba6bdab643e8b6fd33ac0654aef8333
+      with:
+        artifact-ids: ${{ needs.build.outputs.artifact-id }}
+        path: release
+    - name: Validate source ancestry and immutable tag boundary
+      shell: bash
+      env:
+        VERSION: ${{ needs.target.outputs.version }}
+        TAG: v${{ needs.target.outputs.version }}
+        GH_TOKEN: ${{ github.token }}
+      run: 'set -euo pipefail
 
-      - uses: actions/download-artifact@v4
-        with:
-          path: artifacts/
+        [[ "$VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]] || exit 1
 
-      - name: Collect release files
-        run: |
-          mkdir -p release-files
-          find artifacts/ -type f \( -name "*.tar.gz" -o -name "*.zip" \) -exec cp {} release-files/ \;
-          ls -la release-files/
+        ancestor=$(gh api "repos/$GITHUB_REPOSITORY/compare/$GITHUB_SHA...main" --jq .merge_base_commit.sha)
 
-      - name: Create GitHub Release
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: "v${{ needs.determine-version.outputs.version }}"
-          generate_release_notes: true
-          files: release-files/*
+        test "$ancestor" = "$GITHUB_SHA" || { echo ''Release commit is no longer on main.'' >&2; exit 1; }
+
+        existing=$(gh api "repos/$GITHUB_REPOSITORY/git/matching-refs/tags/$TAG" --jq ''map(select(.ref == ("refs/tags/" + env.TAG)))[0].object.sha // ""'')
+
+        test -z "$existing" || test "$existing" = "$GITHUB_SHA" || { echo ''Conflicting source tag exists.'' >&2; exit 1; }
+
+        '
+    - name: Validate artifact before requesting credentials
+      env:
+        VERSION: ${{ needs.target.outputs.version }}
+        TAG: v${{ needs.target.outputs.version }}
+        CRATE_VERIFY_ONLY: '1'
+      run: "python3 - <<'PY'\n\"\"\"Publish one verified, prebuilt Cargo archive without building or executing it.\"\"\"\n\nfrom __future__ import annotations\n\nimport hashlib\nimport json\nimport os\nimport re\nimport struct\nimport sys\nimport time\nimport urllib.error\nimport urllib.request\nfrom pathlib import Path\n\n\nclass NoRedirect(urllib.request.HTTPRedirectHandler):\n    \"\"\"Never forward a registry credential through a redirect.\"\"\"\n\n    def redirect_request(self, *_args: object, **_kwargs: object) -> None:\n        \"\"\"Reject redirects rather than broadening the credential destination.\"\"\"\n        return\n\n\nclass CrateUpload:\n    \"\"\"Use Cargo's documented upload protocol with a fixed registry destination.\"\"\"\n\n    API = \"https://crates.io/api/v1/crates\"\n\n    @staticmethod\n    def bundle(directory: Path) -> tuple[dict[str, object], bytes, str]:\n        \"\"\"Require the expected crate, version, digest and reviewed source SHA.\"\"\"\n        record\
+        \ = json.loads((directory / \"publish.json\").read_text(encoding=\"utf-8\"))\n        version = os.environ[\"VERSION\"]\n        source = os.environ[\"GITHUB_SHA\"]\n        if (\n            re.fullmatch(r\"[0-9]+\\.[0-9]+\\.[0-9]+\", version) is None\n            or re.fullmatch(r\"[0-9a-f]{40}\", source) is None\n        ):\n            raise ValueError(\"Invalid release identity\")\n        package = record[\"package\"]\n        if (\n            package[\"name\"] != \"launchline\"\n            or package[\"vers\"] != version\n            or record[\"source_sha\"] != source\n        ):\n            raise ValueError(\"Release identity does not match reviewed source\")\n        filename = f\"launchline-{version}.crate\"\n        if record[\"crate_file\"] != filename:\n            raise ValueError(\"Unexpected crate filename\")\n        path = directory / filename\n        if not 0 < path.stat().st_size <= 10 * 1024 * 1024:\n            raise ValueError(\"Crate exceeds registry\
+        \ size boundary\")\n        payload = path.read_bytes()\n        digest = hashlib.sha256(payload).hexdigest()\n        if (\n            digest != record[\"sha256\"]\n            or package.get(\"repository\")\n            != \"https://github.com/mikejhill/launchline-rust\"\n        ):\n            raise ValueError(\"Artifact checksum or repository mismatch\")\n        return package, payload, digest\n\n    @staticmethod\n    def _existing(version: str) -> str | None:\n        \"\"\"Return only the public registry checksum; distinguish 404 from failures.\"\"\"\n        request = urllib.request.Request(\n            f\"{CrateUpload.API}/launchline/{version}\",\n            headers={\n                \"User-Agent\": \"launchline-release/1 (github.com/mikejhill/launchline-rust)\"\n            },\n        )\n        try:\n            with urllib.request.build_opener(NoRedirect()).open(\n                request, timeout=30\n            ) as response:\n                return str(json.load(response)[\"\
+        version\"][\"checksum\"])\n        except urllib.error.HTTPError as error:\n            if error.code == 404:\n                return None\n            raise RuntimeError(\n                f\"Registry inspection failed (HTTP {error.code})\"\n            ) from None\n\n    @staticmethod\n    def publish(directory: Path) -> None:\n        \"\"\"Upload once or accept an exact-checksum retry; never overwrite a version.\"\"\"\n        package, payload, digest = CrateUpload.bundle(directory)\n        version = str(package[\"vers\"])\n        existing = CrateUpload._existing(version)\n        if existing is not None:\n            if existing != digest:\n                raise ValueError(\"Existing registry version has different bytes\")\n            sys.stdout.write(\"Registry already contains the exact tested crate.\\n\")\n            return\n        metadata = json.dumps(package, separators=(\",\", \":\")).encode()\n        body = (\n            struct.pack(\"<I\", len(metadata))\n   \
+        \         + metadata\n            + struct.pack(\"<I\", len(payload))\n            + payload\n        )\n        request = urllib.request.Request(\n            CrateUpload.API + \"/new\",\n            data=body,\n            method=\"PUT\",\n            headers={\n                \"Authorization\": os.environ[\"CRATES_IO_TOKEN\"],\n                \"Content-Type\": \"application/octet-stream\",\n                \"Accept\": \"application/json\",\n                \"User-Agent\": \"launchline-release/1 (github.com/mikejhill/launchline-rust)\",\n            },\n        )\n        try:\n            with urllib.request.build_opener(NoRedirect()).open(\n                request, timeout=60\n            ) as response:\n                result = json.load(response)\n                if result.get(\"errors\"):\n                    raise RuntimeError(\"Registry rejected the upload\")\n        except (urllib.error.URLError, TimeoutError) as error:\n            raise RuntimeError(\n            \
+        \    \"Upload outcome uncertain; inspect exact version/checksum before retry\"\n            ) from error\n        for _attempt in range(12):\n            existing = CrateUpload._existing(version)\n            if existing is not None:\n                if existing != digest:\n                    raise ValueError(\"Published checksum differs from tested artifact\")\n                sys.stdout.write(\"Published exact tested crate to crates.io.\\n\")\n                return\n            time.sleep(5)\n        raise RuntimeError(\n            \"Upload accepted but visibility unconfirmed; inspect before retry\"\n        )\n\n    @staticmethod\n    def main() -> None:\n        \"\"\"Validate without credentials, or publish the same already-tested archive.\"\"\"\n        directory = Path(\"release\")\n        if os.environ.get(\"CRATE_VERIFY_ONLY\") == \"1\":\n            CrateUpload.bundle(directory)\n            sys.stdout.write(\"Verified crate release bundle.\\n\")\n        else:\n  \
+        \          CrateUpload.publish(directory)\n\n\nif __name__ == \"__main__\":\n    CrateUpload.main()\n\nPY\n"
+    - uses: rust-lang/crates-io-auth-action@3268eb413133e2960fa4ae0e963ca76380c54cd9
+      id: auth
+    - name: Publish prebuilt archive without executing package code
+      env:
+        VERSION: ${{ needs.target.outputs.version }}
+        TAG: v${{ needs.target.outputs.version }}
+        CRATES_IO_TOKEN: ${{ steps.auth.outputs.token }}
+      run: "python3 - <<'PY'\n\"\"\"Publish one verified, prebuilt Cargo archive without building or executing it.\"\"\"\n\nfrom __future__ import annotations\n\nimport hashlib\nimport json\nimport os\nimport re\nimport struct\nimport sys\nimport time\nimport urllib.error\nimport urllib.request\nfrom pathlib import Path\n\n\nclass NoRedirect(urllib.request.HTTPRedirectHandler):\n    \"\"\"Never forward a registry credential through a redirect.\"\"\"\n\n    def redirect_request(self, *_args: object, **_kwargs: object) -> None:\n        \"\"\"Reject redirects rather than broadening the credential destination.\"\"\"\n        return\n\n\nclass CrateUpload:\n    \"\"\"Use Cargo's documented upload protocol with a fixed registry destination.\"\"\"\n\n    API = \"https://crates.io/api/v1/crates\"\n\n    @staticmethod\n    def bundle(directory: Path) -> tuple[dict[str, object], bytes, str]:\n        \"\"\"Require the expected crate, version, digest and reviewed source SHA.\"\"\"\n        record\
+        \ = json.loads((directory / \"publish.json\").read_text(encoding=\"utf-8\"))\n        version = os.environ[\"VERSION\"]\n        source = os.environ[\"GITHUB_SHA\"]\n        if (\n            re.fullmatch(r\"[0-9]+\\.[0-9]+\\.[0-9]+\", version) is None\n            or re.fullmatch(r\"[0-9a-f]{40}\", source) is None\n        ):\n            raise ValueError(\"Invalid release identity\")\n        package = record[\"package\"]\n        if (\n            package[\"name\"] != \"launchline\"\n            or package[\"vers\"] != version\n            or record[\"source_sha\"] != source\n        ):\n            raise ValueError(\"Release identity does not match reviewed source\")\n        filename = f\"launchline-{version}.crate\"\n        if record[\"crate_file\"] != filename:\n            raise ValueError(\"Unexpected crate filename\")\n        path = directory / filename\n        if not 0 < path.stat().st_size <= 10 * 1024 * 1024:\n            raise ValueError(\"Crate exceeds registry\
+        \ size boundary\")\n        payload = path.read_bytes()\n        digest = hashlib.sha256(payload).hexdigest()\n        if (\n            digest != record[\"sha256\"]\n            or package.get(\"repository\")\n            != \"https://github.com/mikejhill/launchline-rust\"\n        ):\n            raise ValueError(\"Artifact checksum or repository mismatch\")\n        return package, payload, digest\n\n    @staticmethod\n    def _existing(version: str) -> str | None:\n        \"\"\"Return only the public registry checksum; distinguish 404 from failures.\"\"\"\n        request = urllib.request.Request(\n            f\"{CrateUpload.API}/launchline/{version}\",\n            headers={\n                \"User-Agent\": \"launchline-release/1 (github.com/mikejhill/launchline-rust)\"\n            },\n        )\n        try:\n            with urllib.request.build_opener(NoRedirect()).open(\n                request, timeout=30\n            ) as response:\n                return str(json.load(response)[\"\
+        version\"][\"checksum\"])\n        except urllib.error.HTTPError as error:\n            if error.code == 404:\n                return None\n            raise RuntimeError(\n                f\"Registry inspection failed (HTTP {error.code})\"\n            ) from None\n\n    @staticmethod\n    def publish(directory: Path) -> None:\n        \"\"\"Upload once or accept an exact-checksum retry; never overwrite a version.\"\"\"\n        package, payload, digest = CrateUpload.bundle(directory)\n        version = str(package[\"vers\"])\n        existing = CrateUpload._existing(version)\n        if existing is not None:\n            if existing != digest:\n                raise ValueError(\"Existing registry version has different bytes\")\n            sys.stdout.write(\"Registry already contains the exact tested crate.\\n\")\n            return\n        metadata = json.dumps(package, separators=(\",\", \":\")).encode()\n        body = (\n            struct.pack(\"<I\", len(metadata))\n   \
+        \         + metadata\n            + struct.pack(\"<I\", len(payload))\n            + payload\n        )\n        request = urllib.request.Request(\n            CrateUpload.API + \"/new\",\n            data=body,\n            method=\"PUT\",\n            headers={\n                \"Authorization\": os.environ[\"CRATES_IO_TOKEN\"],\n                \"Content-Type\": \"application/octet-stream\",\n                \"Accept\": \"application/json\",\n                \"User-Agent\": \"launchline-release/1 (github.com/mikejhill/launchline-rust)\",\n            },\n        )\n        try:\n            with urllib.request.build_opener(NoRedirect()).open(\n                request, timeout=60\n            ) as response:\n                result = json.load(response)\n                if result.get(\"errors\"):\n                    raise RuntimeError(\"Registry rejected the upload\")\n        except (urllib.error.URLError, TimeoutError) as error:\n            raise RuntimeError(\n            \
+        \    \"Upload outcome uncertain; inspect exact version/checksum before retry\"\n            ) from error\n        for _attempt in range(12):\n            existing = CrateUpload._existing(version)\n            if existing is not None:\n                if existing != digest:\n                    raise ValueError(\"Published checksum differs from tested artifact\")\n                sys.stdout.write(\"Published exact tested crate to crates.io.\\n\")\n                return\n            time.sleep(5)\n        raise RuntimeError(\n            \"Upload accepted but visibility unconfirmed; inspect before retry\"\n        )\n\n    @staticmethod\n    def main() -> None:\n        \"\"\"Validate without credentials, or publish the same already-tested archive.\"\"\"\n        directory = Path(\"release\")\n        if os.environ.get(\"CRATE_VERIFY_ONLY\") == \"1\":\n            CrateUpload.bundle(directory)\n            sys.stdout.write(\"Verified crate release bundle.\\n\")\n        else:\n  \
+        \          CrateUpload.publish(directory)\n\n\nif __name__ == \"__main__\":\n    CrateUpload.main()\n\nPY\n"
+  source-tag:
+    name: Record immutable source version tag
+    needs:
+    - target
+    - crates
+    if: github.ref == 'refs/heads/main' && github.actor == 'mikejhill' && github.triggering_actor == 'mikejhill' && needs.crates.result == 'success'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write # Create immutable source tags after verified registry publication.
+    steps:
+    - name: Create source tag after verified registry publication
+      shell: bash
+      env:
+        VERSION: ${{ needs.target.outputs.version }}
+        TAG: v${{ needs.target.outputs.version }}
+        GH_TOKEN: ${{ github.token }}
+      run: "set -euo pipefail\n[[ \"$TAG\" =~ ^v[0-9]+\\.[0-9]+\\.[0-9]+$ ]] || exit 1\nancestor=$(gh api \"repos/$GITHUB_REPOSITORY/compare/$GITHUB_SHA...main\" --jq .merge_base_commit.sha)\ntest \"$ancestor\" = \"$GITHUB_SHA\" || { echo 'Release commit is no longer on main.' >&2; exit 1; }\npython3 - <<'PY'\nimport json,os,pathlib,re\nassert re.fullmatch(r'v[0-9]+\\.[0-9]+\\.[0-9]+',os.environ['TAG'])\nassert re.fullmatch(r'[0-9a-f]{40}',os.environ['GITHUB_SHA'])\npathlib.Path('source-ref.json').write_text(json.dumps({'ref':'refs/tags/'+os.environ['TAG'],'sha':os.environ['GITHUB_SHA']}))\nPY\nif ! gh api --method POST \"repos/$GITHUB_REPOSITORY/git/refs\" --input source-ref.json >/dev/null 2>tag-create-error.txt; then\n  actual=$(gh api \"repos/$GITHUB_REPOSITORY/commits/$TAG\" --jq .sha)\n  test \"$actual\" = \"$GITHUB_SHA\" || { echo 'Conflicting source tag or ref creation failure.' >&2; exit 1; }\nfi\nactual=$(gh api \"repos/$GITHUB_REPOSITORY/commits/$TAG\" --jq .sha)\ntest \"$actual\"\
+        \ = \"$GITHUB_SHA\" || exit 1\n"

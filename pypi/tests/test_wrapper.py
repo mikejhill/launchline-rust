@@ -2,17 +2,17 @@
 
 from __future__ import annotations
 
+import hashlib
 import io
 import os
-import platform
 import stat
 import tarfile
 import zipfile
 from pathlib import Path
+from types import SimpleNamespace
 from unittest.mock import MagicMock, patch
 
 import pytest
-
 from launchline._wrapper import (
     _PLATFORM_MAP,
     _binary_name,
@@ -23,7 +23,6 @@ from launchline._wrapper import (
     main,
 )
 
-
 # ---------------------------------------------------------------------------
 # _get_cache_dir
 # ---------------------------------------------------------------------------
@@ -32,16 +31,22 @@ from launchline._wrapper import (
 class TestGetCacheDir:
     """Tests for cache directory resolution."""
 
-    @patch("launchline._wrapper.os.name", "nt")
-    @patch.dict("os.environ", {"LOCALAPPDATA": r"C:\Users\Test\AppData\Local"}, clear=False)
+    @patch("launchline._wrapper.os", SimpleNamespace(name="nt", environ=os.environ))
+    @patch.dict(
+        "os.environ", {"LOCALAPPDATA": r"C:\Users\Test\AppData\Local"}, clear=False
+    )
     def test_windows_uses_localappdata(self) -> None:
-        result = _get_cache_dir()
+        with patch(
+            "launchline._wrapper.Path.home",
+            side_effect=AssertionError("LOCALAPPDATA must avoid the home fallback"),
+        ):
+            result = _get_cache_dir()
         assert result == Path(r"C:\Users\Test\AppData\Local") / "launchline" / "bin", (
             f"Expected LOCALAPPDATA-based path on Windows, got {result}"
         )
 
     @pytest.mark.skipif(os.name == "nt", reason="PosixPath unavailable on Windows")
-    @patch("launchline._wrapper.os.name", "posix")
+    @patch("launchline._wrapper.os", SimpleNamespace(name="posix", environ=os.environ))
     @patch.dict("os.environ", {"XDG_CACHE_HOME": "/custom/cache"}, clear=False)
     def test_posix_respects_xdg_cache_home(self) -> None:
         result = _get_cache_dir()
@@ -50,7 +55,7 @@ class TestGetCacheDir:
         )
 
     @pytest.mark.skipif(os.name == "nt", reason="PosixPath unavailable on Windows")
-    @patch("launchline._wrapper.os.name", "posix")
+    @patch("launchline._wrapper.os", SimpleNamespace(name="posix", environ=os.environ))
     @patch.dict("os.environ", {}, clear=True)
     @patch("launchline._wrapper.Path.home", return_value=Path("/home/testuser"))
     def test_posix_falls_back_to_dot_cache(self, _mock_home: MagicMock) -> None:
@@ -70,21 +75,15 @@ class TestBinaryName:
 
     @patch("launchline._wrapper.platform.system", return_value="Windows")
     def test_windows_returns_exe(self, _mock: MagicMock) -> None:
-        assert _binary_name() == "launchline.exe", (
-            "Expected .exe extension on Windows"
-        )
+        assert _binary_name() == "launchline.exe", "Expected .exe extension on Windows"
 
     @patch("launchline._wrapper.platform.system", return_value="Linux")
     def test_linux_returns_no_extension(self, _mock: MagicMock) -> None:
-        assert _binary_name() == "launchline", (
-            "Expected no extension on Linux"
-        )
+        assert _binary_name() == "launchline", "Expected no extension on Linux"
 
     @patch("launchline._wrapper.platform.system", return_value="Darwin")
     def test_macos_returns_no_extension(self, _mock: MagicMock) -> None:
-        assert _binary_name() == "launchline", (
-            "Expected no extension on macOS"
-        )
+        assert _binary_name() == "launchline", "Expected no extension on macOS"
 
 
 # ---------------------------------------------------------------------------
@@ -106,9 +105,7 @@ class TestResolveArtifact:
         assert url.endswith("launchline-linux-x64.tar.gz"), (
             f"Expected .tar.gz URL for Linux, got {url}"
         )
-        assert "v0.3.0" in url, (
-            f"Expected version in URL, got {url}"
-        )
+        assert "v0.3.0" in url, f"Expected version in URL, got {url}"
 
     @patch("launchline._wrapper.version", return_value="0.3.0")
     @patch("launchline._wrapper.platform.machine", return_value="AMD64")
@@ -118,9 +115,7 @@ class TestResolveArtifact:
         assert artifact == "launchline-windows-x64", (
             f"Expected windows-x64 artifact, got {artifact}"
         )
-        assert url.endswith(".zip"), (
-            f"Expected .zip URL for Windows, got {url}"
-        )
+        assert url.endswith(".zip"), f"Expected .zip URL for Windows, got {url}"
 
     @patch("launchline._wrapper.version", return_value="1.2.3")
     @patch("launchline._wrapper.platform.machine", return_value="arm64")
@@ -130,13 +125,13 @@ class TestResolveArtifact:
         assert artifact == "launchline-macos-arm64", (
             f"Expected macos-arm64 artifact, got {artifact}"
         )
-        assert "/v1.2.3/" in url, (
-            f"Expected version 1.2.3 in URL, got {url}"
-        )
+        assert "/v1.2.3/" in url, f"Expected version 1.2.3 in URL, got {url}"
 
     @patch("launchline._wrapper.platform.machine", return_value="mips64")
     @patch("launchline._wrapper.platform.system", return_value="Linux")
-    def test_unsupported_platform_raises_runtime_error(self, *_mocks: MagicMock) -> None:
+    def test_unsupported_platform_raises_runtime_error(
+        self, *_mocks: MagicMock
+    ) -> None:
         with pytest.raises(RuntimeError, match="Unsupported platform"):
             _resolve_artifact()
 
@@ -147,10 +142,10 @@ class TestResolveArtifact:
             f"Platform map missing systems: {expected_systems - actual_systems}"
         )
 
-    def test_platform_map_has_seven_entries(self) -> None:
+    def test_platform_map_has_eight_entries(self) -> None:
         # Linux x64/arm64, Darwin x64/arm64, Windows AMD64/x86_64/arm64
-        assert len(_PLATFORM_MAP) == 7, (
-            f"Expected 7 platform mappings, got {len(_PLATFORM_MAP)}"
+        assert len(_PLATFORM_MAP) == 8, (
+            f"Expected 8 platform mappings, got {len(_PLATFORM_MAP)}"
         )
 
 
@@ -179,22 +174,35 @@ class TestDownloadAndExtract:
         return buf.getvalue()
 
     @patch("launchline._wrapper.platform.system", return_value="Linux")
-    def test_extracts_binary_from_tar_gz(self, _mock: MagicMock, tmp_path: Path) -> None:
+    def test_extracts_binary_from_tar_gz(
+        self, _mock: MagicMock, tmp_path: Path
+    ) -> None:
         archive_data = self._make_tar_gz("launchline", b"FAKE_BINARY")
         url = "https://example.com/launchline.tar.gz"
 
         mock_resp = MagicMock()
-        mock_resp.read.return_value = archive_data
+        mock_resp.read.side_effect = [
+            archive_data,
+            (
+                hashlib.sha256(archive_data).hexdigest() + "  " + url.rsplit("/", 1)[1]
+            ).encode("ascii"),
+        ]
         mock_resp.__enter__ = lambda s: s
         mock_resp.__exit__ = MagicMock(return_value=False)
 
-        with patch("launchline._wrapper.urllib.request.urlopen", return_value=mock_resp):
+        with patch(
+            "launchline._wrapper.urllib.request.urlopen", return_value=mock_resp
+        ):
             result = _download_and_extract(url, tmp_path)
 
         assert result.exists(), f"Binary not found at {result}"
-        assert result.read_bytes() == b"FAKE_BINARY", "Extracted binary content mismatch"
+        assert result.read_bytes() == b"FAKE_BINARY", (
+            "Extracted binary content mismatch"
+        )
         if os.name != "nt":
-            assert result.stat().st_mode & stat.S_IEXEC, "Binary should be executable on Unix"
+            assert result.stat().st_mode & stat.S_IEXEC, (
+                "Binary should be executable on Unix"
+            )
 
     @patch("launchline._wrapper.platform.system", return_value="Windows")
     def test_extracts_binary_from_zip(self, _mock: MagicMock, tmp_path: Path) -> None:
@@ -202,56 +210,92 @@ class TestDownloadAndExtract:
         url = "https://example.com/launchline.zip"
 
         mock_resp = MagicMock()
-        mock_resp.read.return_value = archive_data
+        mock_resp.read.side_effect = [
+            archive_data,
+            (
+                hashlib.sha256(archive_data).hexdigest() + "  " + url.rsplit("/", 1)[1]
+            ).encode("ascii"),
+        ]
         mock_resp.__enter__ = lambda s: s
         mock_resp.__exit__ = MagicMock(return_value=False)
 
-        with patch("launchline._wrapper.urllib.request.urlopen", return_value=mock_resp):
+        with patch(
+            "launchline._wrapper.urllib.request.urlopen", return_value=mock_resp
+        ):
             result = _download_and_extract(url, tmp_path)
 
         assert result.exists(), f"Binary not found at {result}"
-        assert result.read_bytes() == b"FAKE_BINARY_WIN", "Extracted binary content mismatch"
+        assert result.read_bytes() == b"FAKE_BINARY_WIN", (
+            "Extracted binary content mismatch"
+        )
 
     @patch("launchline._wrapper.platform.system", return_value="Linux")
-    def test_tar_gz_missing_binary_raises_error(self, _mock: MagicMock, tmp_path: Path) -> None:
+    def test_tar_gz_missing_binary_raises_error(
+        self, _mock: MagicMock, tmp_path: Path
+    ) -> None:
         archive_data = self._make_tar_gz("wrong_name", b"IRRELEVANT")
         url = "https://example.com/launchline.tar.gz"
 
         mock_resp = MagicMock()
-        mock_resp.read.return_value = archive_data
+        mock_resp.read.side_effect = [
+            archive_data,
+            (
+                hashlib.sha256(archive_data).hexdigest() + "  " + url.rsplit("/", 1)[1]
+            ).encode("ascii"),
+        ]
         mock_resp.__enter__ = lambda s: s
         mock_resp.__exit__ = MagicMock(return_value=False)
 
-        with patch("launchline._wrapper.urllib.request.urlopen", return_value=mock_resp):
-            with pytest.raises(RuntimeError, match="not found in archive"):
-                _download_and_extract(url, tmp_path)
+        with (
+            patch("launchline._wrapper.urllib.request.urlopen", return_value=mock_resp),
+            pytest.raises(RuntimeError, match="not found in archive"),
+        ):
+            _download_and_extract(url, tmp_path)
 
     @patch("launchline._wrapper.platform.system", return_value="Windows")
-    def test_zip_missing_binary_raises_error(self, _mock: MagicMock, tmp_path: Path) -> None:
+    def test_zip_missing_binary_raises_error(
+        self, _mock: MagicMock, tmp_path: Path
+    ) -> None:
         archive_data = self._make_zip("wrong_name.exe", b"IRRELEVANT")
         url = "https://example.com/launchline.zip"
 
         mock_resp = MagicMock()
-        mock_resp.read.return_value = archive_data
+        mock_resp.read.side_effect = [
+            archive_data,
+            (
+                hashlib.sha256(archive_data).hexdigest() + "  " + url.rsplit("/", 1)[1]
+            ).encode("ascii"),
+        ]
         mock_resp.__enter__ = lambda s: s
         mock_resp.__exit__ = MagicMock(return_value=False)
 
-        with patch("launchline._wrapper.urllib.request.urlopen", return_value=mock_resp):
-            with pytest.raises(RuntimeError, match="not found in archive"):
-                _download_and_extract(url, tmp_path)
+        with (
+            patch("launchline._wrapper.urllib.request.urlopen", return_value=mock_resp),
+            pytest.raises(RuntimeError, match="not found in archive"),
+        ):
+            _download_and_extract(url, tmp_path)
 
     @patch("launchline._wrapper.platform.system", return_value="Linux")
-    def test_creates_destination_directory(self, _mock: MagicMock, tmp_path: Path) -> None:
+    def test_creates_destination_directory(
+        self, _mock: MagicMock, tmp_path: Path
+    ) -> None:
         dest = tmp_path / "nested" / "dir"
         archive_data = self._make_tar_gz("launchline", b"BIN")
         url = "https://example.com/launchline.tar.gz"
 
         mock_resp = MagicMock()
-        mock_resp.read.return_value = archive_data
+        mock_resp.read.side_effect = [
+            archive_data,
+            (
+                hashlib.sha256(archive_data).hexdigest() + "  " + url.rsplit("/", 1)[1]
+            ).encode("ascii"),
+        ]
         mock_resp.__enter__ = lambda s: s
         mock_resp.__exit__ = MagicMock(return_value=False)
 
-        with patch("launchline._wrapper.urllib.request.urlopen", return_value=mock_resp):
+        with patch(
+            "launchline._wrapper.urllib.request.urlopen", return_value=mock_resp
+        ):
             result = _download_and_extract(url, dest)
 
         assert dest.is_dir(), "Should have created nested directories"
@@ -278,12 +322,13 @@ class TestEnsureBinary:
         binary.write_bytes(b"CACHED")
 
         result = _ensure_binary()
-        assert result == binary, (
-            f"Expected cached path {binary}, got {result}"
-        )
+        assert result == binary, f"Expected cached path {binary}, got {result}"
 
     @patch("launchline._wrapper._download_and_extract")
-    @patch("launchline._wrapper._resolve_artifact", return_value=("launchline-linux-x64", "https://example.com/bin.tar.gz"))
+    @patch(
+        "launchline._wrapper._resolve_artifact",
+        return_value=("launchline-linux-x64", "https://example.com/bin.tar.gz"),
+    )
     @patch("launchline._wrapper.version", return_value="0.3.0")
     @patch("launchline._wrapper._get_cache_dir")
     def test_downloads_when_not_cached(
@@ -323,9 +368,11 @@ class TestMain:
         mock_ensure.return_value = binary
         mock_run.return_value = MagicMock(returncode=0)
 
-        with patch("sys.argv", ["launchline", "--config", "my.toml"]):
-            with pytest.raises(SystemExit) as exc_info:
-                main()
+        with (
+            patch("sys.argv", ["launchline", "--config", "my.toml"]),
+            pytest.raises(SystemExit) as exc_info,
+        ):
+            main()
 
         assert exc_info.value.code == 0, (
             f"Expected exit code 0, got {exc_info.value.code}"
@@ -345,15 +392,17 @@ class TestMain:
         mock_ensure.return_value = binary
         mock_run.return_value = MagicMock(returncode=42)
 
-        with patch("sys.argv", ["launchline"]):
-            with pytest.raises(SystemExit) as exc_info:
-                main()
+        with patch("sys.argv", ["launchline"]), pytest.raises(SystemExit) as exc_info:
+            main()
 
         assert exc_info.value.code == 42, (
             f"Expected exit code 42, got {exc_info.value.code}"
         )
 
-    @patch("launchline._wrapper._ensure_binary", side_effect=RuntimeError("download failed"))
+    @patch(
+        "launchline._wrapper._ensure_binary",
+        side_effect=RuntimeError("download failed"),
+    )
     def test_main_handles_binary_download_failure(self, _mock: MagicMock) -> None:
         with pytest.raises(SystemExit) as exc_info:
             main()

@@ -1,0 +1,16 @@
+{
+  "command": [
+    "--dry",
+    "--no-ci",
+    "--allow-initial-development-versions",
+    "--plugin-resolver-disable-batch-prefetch",
+    "--changelog",
+    "release-changelog.md"
+  ],
+  "fixture": "disposable local Git repository; no remote or tokens",
+  "returncode": 0,
+  "stderr": "[go-semantic-release]: version: 2.31.0\n[go-semantic-release]: ci-condition plugin: default@1.11.0\n[go-semantic-release]: provider plugin: git@1.13.0\n[go-semantic-release]: getting default branch...\n[go-semantic-release]: found default branch: main\n[go-semantic-release]: found current branch: main\n[go-semantic-release]: found current sha: main\n[go-semantic-release]: getting latest release...\n[go-semantic-release]: found version: 0.0.0\n[go-semantic-release]: getting commits...\n[go-semantic-release]: analyzing commits...\n[go-semantic-release]: commit-analyzer plugin: default@1.15.0\n[go-semantic-release]: calculating new version...\n[go-semantic-release]: new version: 0.1.0\n[go-semantic-release]: generating changelog...\n[go-semantic-release]: changelog-generator plugin: default@1.15.0\n[go-semantic-release]: DRY RUN: no release was created\n[go-semantic-release]: stopping plugins...\n",
+  "tags_after": "",
+  "version_output": "version=0.1.0\n",
+  "notes": "## 0.1.0 (2026-10-22)\n\n#### Feature\n\n* initial fixture (6e22f76b)\n\n"
+}

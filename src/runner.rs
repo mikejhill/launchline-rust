@@ -1,4 +1,5 @@
 use std::io::{self, Write};
+#[cfg(target_os = "windows")]
 use std::path::Path;
 use std::process::Command;
 
@@ -25,20 +26,10 @@ impl<'a> EntryRunner<'a> {
             Self::clear_screen();
         }
 
-        let mut env: Vec<(String, String)> = std::env::vars().collect();
-        for (key, value) in &entry.env {
-            let expanded = if value.contains('~') {
-                expand_tilde_str(value)
-            } else {
-                value.clone()
-            };
-            // Update existing or push new
-            if let Some(existing) = env.iter_mut().find(|(k, _)| k == key) {
-                existing.1 = expanded;
-            } else {
-                env.push((key.clone(), expanded));
-            }
-        }
+        let env = entry
+            .env
+            .iter()
+            .map(|(key, value)| (key, expand_tilde_str(value)));
 
         let cwd = entry.working_directory.as_deref();
 
@@ -74,7 +65,7 @@ impl<'a> EntryRunner<'a> {
 
         let mut proc = Command::new(&command);
         proc.args(&cmd_args);
-        proc.envs(env.iter().map(|(k, v)| (k.as_str(), v.as_str())));
+        proc.envs(env);
 
         if let Some(dir) = cwd {
             proc.current_dir(dir);
@@ -99,7 +90,20 @@ impl<'a> EntryRunner<'a> {
             }
         })?;
 
-        Ok(status.code().unwrap_or(1))
+        #[cfg(unix)]
+        {
+            use std::os::unix::process::ExitStatusExt;
+            Ok(status
+                .code()
+                .unwrap_or_else(|| 128 + status.signal().unwrap_or(1)))
+        }
+        #[cfg(windows)]
+        {
+            Ok(match status.code() {
+                Some(-1073741510) => 130, // STATUS_CONTROL_C_EXIT
+                code => code.unwrap_or(1),
+            })
+        }
     }
 
     /// Clear the terminal screen and move the cursor to the home position.

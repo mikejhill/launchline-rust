@@ -1,0 +1,21 @@
+[
+  {
+    "args": [
+      "--help"
+    ],
+    "exit": 0
+  },
+  {
+    "args": [
+      "--icon-path"
+    ],
+    "exit": 0
+  },
+  {
+    "args": [
+      "--log-level",
+      "INVALID"
+    ],
+    "exit": 2
+  }
+]

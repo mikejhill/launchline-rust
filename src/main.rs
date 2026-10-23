@@ -1,19 +1,15 @@
-mod cli;
-mod config;
-mod error;
-mod fuzzy;
-mod runner;
-mod ui;
-mod util;
-
-use std::io::{self, Write};
+use std::io::{self, IsTerminal, Write};
 use std::process;
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
 
-use crate::cli::Args;
-use crate::config::ConfigLoader;
-use crate::error::LaunchLineError;
-use crate::runner::EntryRunner;
-use crate::ui::LaunchLineUI;
+use launchline::cli::Args;
+use launchline::config::ConfigLoader;
+use launchline::error::LaunchLineError;
+use launchline::runner::EntryRunner;
+use launchline::ui::LaunchLineUI;
 
 fn main() {
     let args = Args::parse_args();
@@ -54,6 +50,16 @@ fn main() {
         }
     };
 
+    if args.check_config {
+        println!("Configuration valid: {} entries", config.entries.len());
+        return;
+    }
+    if !io::stdin().is_terminal() || !io::stdout().is_terminal() {
+        eprintln!(
+            "Error: Interactive mode requires a terminal; use --check-config to validate configuration."
+        );
+        process::exit(1);
+    }
     run_app(config);
 }
 
@@ -69,21 +75,32 @@ fn init_logging(level: &str) {
     env_logger::Builder::new().filter_level(filter).init();
 }
 
-fn load_config(args: &Args) -> Result<config::LaunchLineConfig, LaunchLineError> {
-    let config_existed =
-        args.config.is_some() || ConfigLoader::default_path().is_some_and(|p| p.exists());
-
+fn load_config(args: &Args) -> Result<launchline::config::LaunchLineConfig, LaunchLineError> {
     let config_path = ConfigLoader::resolve_path(args.config.as_deref())?;
-
-    if !config_existed {
-        println!("Created starter config at {}", config_path.display());
-        println!("Edit it to add your tools, then run launchline again.\n");
-    }
 
     ConfigLoader::load(&config_path)
 }
 
-fn run_app(config: config::LaunchLineConfig) {
+fn run_app(config: launchline::config::LaunchLineConfig) {
+    let interrupted = Arc::new(AtomicBool::new(false));
+    let signal = Arc::clone(&interrupted);
+    if let Err(error) = ctrlc::set_handler(move || signal.store(true, Ordering::SeqCst)) {
+        eprintln!("Error: Cannot install interrupt handler: {error}");
+        process::exit(1);
+    }
+    #[cfg(windows)]
+    {
+        // SAFETY: A null handler toggles only this process's inherited Ctrl+C flag.
+        let enabled =
+            unsafe { windows_sys::Win32::System::Console::SetConsoleCtrlHandler(None, 0) };
+        if enabled == 0 {
+            eprintln!(
+                "Error: Cannot enable Ctrl+C: {}",
+                io::Error::last_os_error()
+            );
+            process::exit(1);
+        }
+    }
     let mut ui = LaunchLineUI::new(&config);
     let runner = EntryRunner::new(&config);
 
@@ -94,7 +111,15 @@ fn run_app(config: config::LaunchLineConfig) {
             None => break,
         };
 
-        match runner.launch(entry) {
+        interrupted.store(false, Ordering::SeqCst);
+        let outcome = runner.launch(entry);
+        if interrupted.swap(false, Ordering::SeqCst) {
+            if config.on_exit == "exit" {
+                process::exit(130);
+            }
+            continue;
+        }
+        match outcome {
             Ok(exit_code) => {
                 if config.on_exit == "exit" {
                     process::exit(exit_code);

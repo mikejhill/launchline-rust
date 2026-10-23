@@ -1,0 +1,98 @@
+[
+  {
+    "plugin": "provider-github",
+    "version": "1.19.0",
+    "platform": "linux_amd64",
+    "file": "provider-github_v1.19.0_linux_amd64",
+    "sha256": "71bdcfdc169f3d9d9b8ea4f8b7f077dfa6725775073f2b9df6dc71f28c338509",
+    "url": "https://github.com/go-semantic-release/provider-github/releases/download/v1.19.0/provider-github_v1.19.0_linux_amd64"
+  },
+  {
+    "plugin": "provider-github",
+    "version": "1.19.0",
+    "platform": "windows_amd64",
+    "file": "provider-github_v1.19.0_windows_amd64.exe",
+    "sha256": "e85bac8a2a9b423adf62712daaf946b95e6026dbb8701d2538d65dffccd753da",
+    "url": "https://github.com/go-semantic-release/provider-github/releases/download/v1.19.0/provider-github_v1.19.0_windows_amd64.exe"
+  },
+  {
+    "plugin": "provider-git",
+    "version": "1.13.0",
+    "platform": "linux_amd64",
+    "file": "provider-git_v1.13.0_linux_amd64",
+    "sha256": "1d2cc41c6775b216a158cdbb3f5e801e1ad2447632504e5e6ba035c577c76f1d",
+    "url": "https://github.com/go-semantic-release/provider-git/releases/download/v1.13.0/provider-git_v1.13.0_linux_amd64"
+  },
+  {
+    "plugin": "provider-git",
+    "version": "1.13.0",
+    "platform": "windows_amd64",
+    "file": "provider-git_v1.13.0_windows_amd64.exe",
+    "sha256": "8cac13de26efc6151cce751d9796955b87a2a118c056e6feeb23096a9883fef5",
+    "url": "https://github.com/go-semantic-release/provider-git/releases/download/v1.13.0/provider-git_v1.13.0_windows_amd64.exe"
+  },
+  {
+    "plugin": "commit-analyzer-default",
+    "version": "1.15.0",
+    "platform": "linux_amd64",
+    "file": "commit-analyzer-cz_v1.15.0_linux_amd64",
+    "sha256": "992632c67f20338ff76dc81d7672f5eca51b8df3b690e5d0eb35ea4cf0a2de61",
+    "url": "https://github.com/go-semantic-release/commit-analyzer-cz/releases/download/v1.15.0/commit-analyzer-cz_v1.15.0_linux_amd64"
+  },
+  {
+    "plugin": "commit-analyzer-default",
+    "version": "1.15.0",
+    "platform": "windows_amd64",
+    "file": "commit-analyzer-cz_v1.15.0_windows_amd64.exe",
+    "sha256": "febf14386fd11fcbe3f2f54762d42ee5597fe968c9af21fecc4a2c5add84cf81",
+    "url": "https://github.com/go-semantic-release/commit-analyzer-cz/releases/download/v1.15.0/commit-analyzer-cz_v1.15.0_windows_amd64.exe"
+  },
+  {
+    "plugin": "changelog-generator-default",
+    "version": "1.15.0",
+    "platform": "linux_amd64",
+    "file": "changelog-generator-default_v1.15.0_linux_amd64",
+    "sha256": "166ba31b826f5e60d1b53a1190b2340e989295f35a28c45d668be1679b9b18ff",
+    "url": "https://github.com/go-semantic-release/changelog-generator-default/releases/download/v1.15.0/changelog-generator-default_v1.15.0_linux_amd64"
+  },
+  {
+    "plugin": "changelog-generator-default",
+    "version": "1.15.0",
+    "platform": "windows_amd64",
+    "file": "changelog-generator-default_v1.15.0_windows_amd64.exe",
+    "sha256": "a90bc697310b063c43e66b2ce2325138abc83ace312451267e4f4655aef324a2",
+    "url": "https://github.com/go-semantic-release/changelog-generator-default/releases/download/v1.15.0/changelog-generator-default_v1.15.0_windows_amd64.exe"
+  },
+  {
+    "plugin": "condition-default",
+    "version": "1.11.0",
+    "platform": "linux_amd64",
+    "file": "condition-default_v1.11.0_linux_amd64",
+    "sha256": "dabae834fd205ac7171692f9c90c00864be569702f2116cbea453de95a9b18a4",
+    "url": "https://github.com/go-semantic-release/condition-default/releases/download/v1.11.0/condition-default_v1.11.0_linux_amd64"
+  },
+  {
+    "plugin": "condition-default",
+    "version": "1.11.0",
+    "platform": "windows_amd64",
+    "file": "condition-default_v1.11.0_windows_amd64.exe",
+    "sha256": "526ebf0d6cdb98d9c7ba81836c9afa5c717ff3f0739cff70aacbabb7468be8c0",
+    "url": "https://github.com/go-semantic-release/condition-default/releases/download/v1.11.0/condition-default_v1.11.0_windows_amd64.exe"
+  },
+  {
+    "plugin": "files-updater-npm",
+    "version": "1.11.0",
+    "platform": "linux_amd64",
+    "file": "files-updater-npm_v1.11.0_linux_amd64",
+    "sha256": "d2b91f66d2808de739bc9bda1ac1fc9287aeb4c44d137dcb68202c2c96da42d0",
+    "url": "https://github.com/go-semantic-release/files-updater-npm/releases/download/v1.11.0/files-updater-npm_v1.11.0_linux_amd64"
+  },
+  {
+    "plugin": "files-updater-npm",
+    "version": "1.11.0",
+    "platform": "windows_amd64",
+    "file": "files-updater-npm_v1.11.0_windows_amd64.exe",
+    "sha256": "3c726fc680fee7b22f11235f0a55cdc97ee35b547f135f7a4a1ecc70c40055a8",
+    "url": "https://github.com/go-semantic-release/files-updater-npm/releases/download/v1.11.0/files-updater-npm_v1.11.0_windows_amd64.exe"
+  }
+]

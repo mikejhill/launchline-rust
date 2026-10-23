@@ -1,0 +1,24 @@
+{
+  "plugins": {
+    "provider": {
+      "name": "git@1.13.0",
+      "options": {
+        "default_branch": "main"
+      }
+    },
+    "commit-analyzer": {
+      "name": "default@1.15.0"
+    },
+    "changelog-generator": {
+      "name": "default@1.15.0"
+    },
+    "ci-condition": {
+      "name": "default@1.11.0"
+    },
+    "files-updater": {
+      "names": [
+        "npm@1.11.0"
+      ]
+    }
+  }
+}

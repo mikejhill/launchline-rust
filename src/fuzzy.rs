@@ -19,38 +19,29 @@ impl FuzzyMatcher {
             return Some(0);
         }
 
-        let query_lower: Vec<char> = query.to_lowercase().chars().collect();
-        let candidate_lower: Vec<char> = candidate.to_lowercase().chars().collect();
-
-        let mut q_idx = 0;
-        let mut score: i32 = 0;
-        let mut prev_match_idx: i32 = -2;
-
-        for (c_idx, &c_char) in candidate_lower.iter().enumerate() {
-            if q_idx < query_lower.len() && c_char == query_lower[q_idx] {
-                score += 1;
-                // Contiguous character bonus
-                if c_idx as i32 == prev_match_idx + 1 {
-                    score += 2;
-                }
-                // Word-boundary bonus
-                if c_idx == 0
-                    || matches!(
-                        candidate_lower[c_idx - 1],
-                        ' ' | '-' | '_' | '.' | '/' | '\\'
-                    )
-                {
-                    score += 3;
-                }
-                prev_match_idx = c_idx as i32;
-                q_idx += 1;
+        let query_lower = query.to_lowercase();
+        let candidate_lower = candidate.to_lowercase();
+        let mut start = 0;
+        let mut previous_end = usize::MAX;
+        let mut score = 0;
+        for character in query_lower.chars() {
+            let offset = candidate_lower[start..].find(character)?;
+            let index = start + offset;
+            score += 1;
+            if index == previous_end {
+                score += 2;
             }
+            if index == 0
+                || candidate_lower[..index]
+                    .chars()
+                    .next_back()
+                    .is_some_and(|previous| matches!(previous, ' ' | '-' | '_' | '.' | '/' | '\\'))
+            {
+                score += 3;
+            }
+            start = index + character.len_utf8();
+            previous_end = start;
         }
-
-        if q_idx < query_lower.len() {
-            return None;
-        }
-
         Some(score)
     }
 }

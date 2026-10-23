@@ -4,7 +4,7 @@
 [![Release](https://github.com/mikejhill/launchline-rust/actions/workflows/release.yml/badge.svg)](https://github.com/mikejhill/launchline-rust/actions/workflows/release.yml)
 
 > **Rust rewrite of [LaunchLine](https://github.com/mikejhill/launchline)** —
-> same features, ~10× faster startup (~14ms vs ~150ms). See the
+> shared configuration and keyboard contract. See the
 > [Python version](https://github.com/mikejhill/launchline) for the original.
 
 A lightweight terminal launcher for interactive CLI tools. Define your frequently
@@ -38,36 +38,31 @@ instead.
 
 ## Installation
 
-### Download a binary (recommended)
+### Install the native Rust application
 
-Grab the latest release for your platform from
-[GitHub Releases](https://github.com/mikejhill/launchline/releases) and place it
-somewhere on your `PATH`.
+Rust releases are published only to crates.io as crate `launchline`:
 
-### Build from source
+```sh
+cargo install launchline --locked
+```
 
-Requires [Rust](https://rustup.rs/) 1.85 or later.
+Cargo builds the native executable. The CI-validated build toolchain is Rust 1.99.1;
+the installed application does not require Python. Source version tags identify
+published crates; this repository does not publish standalone GitHub binary releases.
+
+### Build a checkout
 
 ```sh
 git clone https://github.com/mikejhill/launchline-rust.git
 cd launchline-rust
-cargo build --release
-# Binary is at target/release/launchline (or launchline.exe on Windows)
+cargo build --release --locked
+# Binary: target/release/launchline (launchline.exe on Windows)
 ```
 
-### Install with Cargo
-
-```sh
-cargo install --git https://github.com/mikejhill/launchline-rust.git
-```
-
-### Install with pip
-
-A thin Python wrapper downloads the correct native binary for your platform:
-
-```sh
-pip install launchline
-```
+The separate [Python implementation](https://github.com/mikejhill/launchline) is
+installed from PyPI with `pip install launchline`. The former Rust Python-download
+wrapper is retained as historical source/test tooling and is not published.
+See [release process and registry setup](docs/releasing.md).
 
 ## Quick Start
 
@@ -206,7 +201,7 @@ cargo build --release
 ```
 
 The release profile enables LTO, single codegen unit, and symbol stripping for
-maximum performance (~14ms startup, <1MB binary).
+optimized native execution. Measured scorer results are recorded below.
 
 ## License
 
@@ -216,4 +211,11 @@ MIT
 
 - **[LaunchLine (Python)](https://github.com/mikejhill/launchline)** — the
   original Python version. Installable via `pip install launchline`.
-  Same config format and features.
+  See the compatibility matrix for verified behavior and runtime differences.
+
+## Compatibility and validation
+
+Use `launchline --check-config` to validate configuration without opening the menu.
+Set `NO_COLOR` for a selection marker without ANSI color. See the
+[compatibility matrix](docs/compatibility.md), [reproducible test and performance
+results](docs/validation/report.md), and [release readiness](docs/releasing.md).
