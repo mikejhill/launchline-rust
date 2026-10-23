@@ -1,0 +1,38 @@
+{
+  "host": "MHILL-LAPTOP",
+  "platform": "Windows-11-10.0.26300-SP0",
+  "provider_interpreter": "3.12.13 (main, Mar 20 2026, 00:36:00) [MSC v.1944 64 bit (AMD64)]",
+  "scope": "Warm Back+Enter PTY roundtrip, including configured parent refresh. Excludes initial app startup; seven samples; no timing threshold or universal runtime claim.",
+  "cases": [
+    {
+      "refresh_on_return": false,
+      "roundtrip_ms": [
+        11.0836,
+        9.6029,
+        9.986,
+        9.3011,
+        10.3578,
+        10.158,
+        9.5595
+      ],
+      "median_ms": 9.986,
+      "root_provider_calls": 1,
+      "child_provider_calls": 1
+    },
+    {
+      "refresh_on_return": true,
+      "roundtrip_ms": [
+        153.2083,
+        151.7752,
+        154.977,
+        154.7674,
+        175.1418,
+        173.5781,
+        156.2053
+      ],
+      "median_ms": 154.977,
+      "root_provider_calls": 8,
+      "child_provider_calls": 1
+    }
+  ]
+}

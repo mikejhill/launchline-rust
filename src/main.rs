@@ -101,6 +101,9 @@ fn run_app(config: launchline::config::LaunchLineConfig) {
             process::exit(1);
         }
     }
+    if config.provider.is_some() || config.entries.iter().any(|entry| entry.menu.is_some()) {
+        process::exit(launchline::menus::run(config, interrupted));
+    }
     let mut ui = LaunchLineUI::new(&config);
     let runner = EntryRunner::new(&config);
 

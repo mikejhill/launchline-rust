@@ -43,7 +43,12 @@ class MutationCheck:
             mutants += [
                 ("fuzzy", "case-fold", "candidate.lower()", "candidate"),
                 ("fuzzy", "no-match", "return None", "return 0"),
-                ("config", "required-name", "if not name or not command:", "if False:"),
+                (
+                    "config",
+                    "required-name",
+                    "if not name or (not command and submenu is None):",
+                    "if False:",
+                ),
                 (
                     "config",
                     "exit-policy",
@@ -89,7 +94,10 @@ class MutationCheck:
                 (
                     "config",
                     "required-name",
-                    "if name.is_empty() || command.is_empty()",
+                    (
+                        "if name.is_empty() || "
+                        "(command.is_empty() && raw_entry.menu.is_none())"
+                    ),
                     "if false",
                 ),
                 (

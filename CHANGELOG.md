@@ -7,6 +7,15 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## [Unreleased]
 
+### Menus
+
+- Add nested menus with Back navigation, lazy JSON providers, explicit refresh/retry,
+  configurable parent refresh, and stable selection restoration.
+- Bound generated output, provider timeouts and process cleanup; cache up to 128 menu
+  snapshots with inactive least-recently-used eviction. Existing static configs remain valid.
+- Add shared declaration fixtures, actual provider/terminal tests and seeded menu mutations.
+  See [menu lifecycle and provider contract](docs/menus.md) for examples and limits.
+
 ### Changed
 
 - **Rewritten from Python to Rust** for native execution; measured results are recorded in docs/validation.

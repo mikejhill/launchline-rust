@@ -11,7 +11,7 @@ use crate::util::expand_tilde;
 // -- Public config types ---------------------------------------------------
 
 /// A single launchable entry parsed from the config file.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct EntryConfig {
     pub name: String,
     pub command: String,
@@ -19,10 +19,28 @@ pub struct EntryConfig {
     pub description: String,
     pub working_directory: Option<PathBuf>,
     pub env: HashMap<String, String>,
+    pub id: String,
+    pub menu: Option<Box<MenuConfig>>,
+}
+
+/// A trusted executable provider with a bounded deadline.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ProviderConfig {
+    pub entry: EntryConfig,
+    pub timeout_seconds: u64,
+}
+
+/// A static or generated menu declaration; snapshots belong to the session.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct MenuConfig {
+    pub entries: Vec<EntryConfig>,
+    pub title: String,
+    pub provider: Option<Box<ProviderConfig>>,
+    pub refresh_on_return: bool,
 }
 
 /// Top-level configuration combining settings and entries.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 pub struct LaunchLineConfig {
     pub entries: Vec<EntryConfig>,
     pub title: String,
@@ -31,6 +49,8 @@ pub struct LaunchLineConfig {
     pub clear_on_launch: bool,
     pub ghost_text: bool,
     pub numeric_trigger: bool,
+    pub provider: Option<Box<ProviderConfig>>,
+    pub refresh_on_return: bool,
 }
 
 // -- Raw TOML deserialization types ----------------------------------------
@@ -41,6 +61,7 @@ pub struct LaunchLineConfig {
 struct RawConfig {
     settings: Option<RawSettings>,
     entries: Option<Vec<RawEntry>>,
+    provider: Option<RawProvider>,
 }
 
 #[derive(Deserialize)]
@@ -51,16 +72,37 @@ struct RawSettings {
     clear_on_launch: Option<bool>,
     ghost_text: Option<bool>,
     numeric_trigger: Option<bool>,
+    refresh_on_return: Option<bool>,
 }
 
 #[derive(Deserialize)]
 struct RawEntry {
+    id: Option<String>,
+    menu: Option<RawMenu>,
     name: Option<String>,
     command: Option<String>,
     args: Option<Vec<String>>,
     description: Option<String>,
     working_directory: Option<String>,
     env: Option<HashMap<String, String>>,
+}
+
+#[derive(Deserialize)]
+struct RawMenu {
+    title: Option<String>,
+    refresh_on_return: Option<bool>,
+    entries: Option<Vec<RawEntry>>,
+    provider: Option<RawProvider>,
+}
+
+#[derive(Deserialize)]
+struct RawProvider {
+    command: String,
+    args: Option<Vec<String>>,
+    env: Option<HashMap<String, String>>,
+    working_directory: Option<String>,
+    timeout_seconds: Option<u64>,
+    menu: Option<serde_json::Value>,
 }
 
 // -- Config loader ---------------------------------------------------------
@@ -154,6 +196,7 @@ impl ConfigLoader {
             clear_on_launch: None,
             ghost_text: None,
             numeric_trigger: None,
+            refresh_on_return: None,
         });
 
         let title = settings.title.unwrap_or_else(|| "LaunchLine".to_string());
@@ -172,25 +215,153 @@ impl ConfigLoader {
         let ghost_text = settings.ghost_text.unwrap_or(true);
         let numeric_trigger = settings.numeric_trigger.unwrap_or(true);
 
-        let raw_entries = raw.entries.unwrap_or_default();
-        if raw_entries.is_empty() {
+        let menu = Self::menu(
+            RawMenu {
+                title: None,
+                refresh_on_return: None,
+                entries: raw.entries,
+                provider: raw.provider,
+            },
+            &title,
+            0,
+            None,
+        )?;
+        if menu.entries.is_empty() && menu.provider.is_none() {
             return Err(LaunchLineError::Configuration(
-                "No entries configured.".to_string(),
+                "No entries configured.".into(),
             ));
         }
+        let entries = menu.entries;
+        let provider = menu.provider;
+        let refresh_on_return = settings.refresh_on_return.unwrap_or(false);
 
+        Ok(LaunchLineConfig {
+            entries,
+            title,
+            on_exit,
+            show_exit,
+            clear_on_launch,
+            ghost_text,
+            numeric_trigger,
+            provider,
+            refresh_on_return,
+        })
+    }
+
+    /// Parse a generated entries array through the same typed validation as TOML.
+    pub fn parse_entries(
+        value: serde_json::Value,
+        depth: usize,
+    ) -> Result<Vec<EntryConfig>, LaunchLineError> {
+        Self::validate_json_entries(&value)?;
+        let raw: Vec<RawEntry> = serde_json::from_value(value).map_err(|error| {
+            LaunchLineError::Configuration(format!("Invalid provider entries: {error}"))
+        })?;
+        Self::entries(raw, depth, Some(1000))
+    }
+
+    fn reject_nulls(
+        table: &serde_json::Map<String, serde_json::Value>,
+        keys: &[&str],
+    ) -> Result<(), LaunchLineError> {
+        if keys
+            .iter()
+            .any(|key| table.get(*key).is_some_and(serde_json::Value::is_null))
+        {
+            return Err(LaunchLineError::Configuration(
+                "Declared fields must not be null.".into(),
+            ));
+        }
+        Ok(())
+    }
+
+    fn validate_json_entries(value: &serde_json::Value) -> Result<(), LaunchLineError> {
+        if let Some(entries) = value.as_array() {
+            for entry in entries {
+                if let Some(table) = entry.as_object() {
+                    Self::reject_nulls(
+                        table,
+                        &[
+                            "name",
+                            "command",
+                            "args",
+                            "description",
+                            "working_directory",
+                            "env",
+                            "id",
+                            "menu",
+                        ],
+                    )?;
+                    if let Some(menu) = table.get("menu").and_then(serde_json::Value::as_object) {
+                        Self::reject_nulls(
+                            menu,
+                            &["title", "entries", "provider", "refresh_on_return"],
+                        )?;
+                        if let Some(entries) = menu.get("entries") {
+                            Self::validate_json_entries(entries)?;
+                        }
+                        if let Some(provider) =
+                            menu.get("provider").and_then(serde_json::Value::as_object)
+                        {
+                            Self::reject_nulls(
+                                provider,
+                                &[
+                                    "command",
+                                    "args",
+                                    "env",
+                                    "working_directory",
+                                    "timeout_seconds",
+                                    "menu",
+                                ],
+                            )?;
+                        }
+                    }
+                }
+            }
+        }
+        Ok(())
+    }
+
+    fn entries(
+        raw_entries: Vec<RawEntry>,
+        depth: usize,
+        max_entries: Option<usize>,
+    ) -> Result<Vec<EntryConfig>, LaunchLineError> {
+        if max_entries.is_some_and(|limit| raw_entries.len() > limit) {
+            return Err(LaunchLineError::Configuration(
+                "At most 1000 entries are allowed per menu.".into(),
+            ));
+        }
         let mut entries = Vec::with_capacity(raw_entries.len());
         for (i, raw_entry) in raw_entries.into_iter().enumerate() {
             let idx = i + 1;
-            let name = raw_entry.name.unwrap_or_default();
-            let command = raw_entry.command.unwrap_or_default();
+            let has_command = raw_entry.command.is_some();
+            let name = raw_entry.name.clone().unwrap_or_default();
+            let command = raw_entry.command.clone().unwrap_or_default();
 
-            if name.is_empty() || command.is_empty() {
+            if name.is_empty() || (command.is_empty() && raw_entry.menu.is_none()) {
                 return Err(LaunchLineError::Configuration(format!(
                     "Entry {idx}: 'name' and 'command' are required."
                 )));
             }
 
+            let id = raw_entry.id.unwrap_or_default();
+            Self::validate_display(&id)?;
+            if raw_entry.menu.is_some()
+                && (has_command
+                    || raw_entry.args.is_some()
+                    || raw_entry.env.is_some()
+                    || raw_entry.working_directory.is_some())
+            {
+                return Err(LaunchLineError::Configuration(
+                    "menu and command fields are exclusive.".into(),
+                ));
+            }
+            let menu = raw_entry
+                .menu
+                .map(|menu| Self::menu(menu, &name, depth + 1, max_entries))
+                .transpose()?
+                .map(Box::new);
             let args = raw_entry.args.unwrap_or_default();
 
             let description = raw_entry.description.unwrap_or_default();
@@ -236,17 +407,75 @@ impl ConfigLoader {
                 description,
                 working_directory,
                 env,
+                id,
+                menu,
             });
         }
 
-        Ok(LaunchLineConfig {
+        let mut identities = std::collections::HashSet::new();
+        for entry in &entries {
+            if !entry.id.is_empty() && !identities.insert(&entry.id) {
+                return Err(LaunchLineError::Configuration(
+                    "Entry ids must be unique within each menu.".into(),
+                ));
+            }
+        }
+        Ok(entries)
+    }
+
+    fn menu(
+        raw: RawMenu,
+        fallback: &str,
+        depth: usize,
+        max_entries: Option<usize>,
+    ) -> Result<MenuConfig, LaunchLineError> {
+        if depth >= 16 {
+            return Err(LaunchLineError::Configuration(
+                "Menus may be nested at most 16 levels including root.".into(),
+            ));
+        }
+        if raw.provider.is_some() && raw.entries.is_some() {
+            return Err(LaunchLineError::Configuration(
+                "A menu must declare entries or provider, not both.".into(),
+            ));
+        }
+        let title = raw.title.unwrap_or_else(|| fallback.into());
+        Self::validate_display(&title)?;
+        let provider = raw.provider.map(Self::provider).transpose()?.map(Box::new);
+        let entries = Self::entries(raw.entries.unwrap_or_default(), depth, max_entries)?;
+        Ok(MenuConfig {
             entries,
             title,
-            on_exit,
-            show_exit,
-            clear_on_launch,
-            ghost_text,
-            numeric_trigger,
+            provider,
+            refresh_on_return: raw.refresh_on_return.unwrap_or(false),
+        })
+    }
+
+    fn provider(raw: RawProvider) -> Result<ProviderConfig, LaunchLineError> {
+        if raw.menu.is_some() {
+            return Err(LaunchLineError::Configuration(
+                "A provider must be an executable command.".into(),
+            ));
+        }
+        let timeout_seconds = raw.timeout_seconds.unwrap_or(10);
+        if !(1..=300).contains(&timeout_seconds) {
+            return Err(LaunchLineError::Configuration(
+                "timeout_seconds must be an integer from 1 to 300.".into(),
+            ));
+        }
+        let entry = RawEntry {
+            name: Some("menu provider".into()),
+            command: Some(raw.command),
+            args: raw.args,
+            env: raw.env,
+            working_directory: raw.working_directory,
+            description: None,
+            id: None,
+            menu: None,
+        };
+        Ok(ProviderConfig {
+            entry: Self::entries(vec![entry], 0, None)?.remove(0),
+            timeout_seconds,
         })
     }
 
