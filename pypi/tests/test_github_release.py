@@ -8,6 +8,7 @@ import io
 import json
 import subprocess
 import tarfile
+import tomllib
 from pathlib import Path
 from unittest.mock import patch
 
@@ -212,7 +213,11 @@ def test_release_workflows_require_review_and_preserve_publisher_isolation() -> 
         (root / ".release-please-manifest.json").read_text(encoding="utf-8")
     )
     assert config["release-type"] == "rust" and config["draft"]
-    assert config["force-tag-creation"] and manifest["."] == "0.2.0"
+    cargo = tomllib.loads((root / "Cargo.toml").read_text(encoding="utf-8"))
+    assert config["force-tag-creation"]
+    assert manifest["."] == cargo["package"]["version"], (
+        "Release PRs must update Cargo and the manifest together, without freezing the bootstrap version"
+    )
     assert normal["jobs"]["target"]["needs"] == ["release-please"]
     assert "release_created == 'true'" in normal["jobs"]["target"]["if"]
     planner = normal["jobs"]["release-please"]
