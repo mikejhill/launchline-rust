@@ -24,7 +24,7 @@ class ReleaseCI:
         "id": 41898282,
         "type": "Bot",
     }
-    CI_SHA256 = "1537005f266d2111e4368bc8c03597ed8a48095f12615972d07b463e1e457c7e"
+    CI_SHA256 = "bf9b4a730d261a63d8522c7cf63735d6f9d059a06d68e6f387b20fd06de0e32c"
     FILES: ClassVar[set[str]] = {
         "Cargo.toml",
         "Cargo.lock",
@@ -223,12 +223,14 @@ class ReleaseCI:
             "--repo",
             cls.REPO,
             "--ref",
-            cls.BRANCH,
+            "main",
             "--field",
             f"expected-sha={pr['head']['sha']}",
+            "--field",
+            f"expected-workflow-sha={pr['base']['sha']}",
         )
         print(
-            "No PR-context run appeared; dispatched unchanged read-only CI with an exact-SHA guard."
+            "No PR-context run appeared; dispatched trusted main CI for the exact validated source."
         )
 
 

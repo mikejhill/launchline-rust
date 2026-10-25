@@ -18,11 +18,14 @@ are Cargo source distributions, not standalone native binaries.
    CI because the bot is a first-time contributor. Using its existing Actions
    permission, the planner approves only that bot's same-repository generated PR
    after verifying the exact head/base, four version files, unchanged dependency
-   records, immutable source trees and the pinned read-only CI definition. It executes no PR code with its
+   records, immutable source trees and the pinned read-only CI definition. It
+   executes no PR code with its
    write token. Changed source, workflows, authors or capabilities require review.
    The contributor approval policy and branch protections remain unchanged.
    If GitHub suppresses the PR event entirely, the planner dispatches the same
-   read-only CI with an exact-SHA guard that rejects a branch race. Failed CI is
+   read-only CI from trusted main, checking out the immutable validated source.
+   Separate source and workflow SHA guards reject source or main races; the
+   dispatch never loads a workflow definition from the PR branch. Failed CI is
    never replaced by a dispatch; uncertain approval writes stop for inspection.
    All required checks and normal merge rules still apply.
 3. Read-only jobs validate the exact source on Windows x64, Linux x64 and macOS

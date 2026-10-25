@@ -4,7 +4,12 @@ name: CI
   workflow_dispatch:
     inputs:
       expected-sha:
-        description: Exact validated release-PR head; fail if the branch moved
+        description: Exact validated source commit to check out
+        type: string
+        required: false
+        default: ''
+      expected-workflow-sha:
+        description: Exact main commit providing the trusted CI definition
         type: string
         required: false
         default: ''
@@ -46,11 +51,14 @@ jobs:
       shell: bash
       env:
         EXPECTED_SHA: ${{ inputs.expected-sha }}
+        EXPECTED_WORKFLOW_SHA: ${{ inputs.expected-workflow-sha }}
       run: |
         set -euo pipefail
         if [ -n "$EXPECTED_SHA" ]; then
           [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
-          test "$EXPECTED_SHA" = "$GITHUB_SHA" || { echo 'Dispatched branch moved; validate its new head.' >&2; exit 1; }
+          [[ "$EXPECTED_WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$EXPECTED_WORKFLOW_SHA" = "$GITHUB_SHA" || { echo 'Trusted main workflow moved; validate its new definition.' >&2; exit 1; }
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA" || { echo 'Checked-out source differs from validated commit.' >&2; exit 1; }
         fi
     - name: Install pinned Rust toolchain
       run: rustup toolchain install 1.99.1 --profile minimal --component rustfmt --component clippy

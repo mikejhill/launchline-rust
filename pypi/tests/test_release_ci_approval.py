@@ -270,7 +270,9 @@ def test_only_version_metadata_and_known_read_only_ci_can_be_approved(
         else 0
     )
     if dispatch:
-        assert dispatch[0][-1] == "expected-sha=" + "b" * 40
+        assert dispatch[0][dispatch[0].index("--ref") + 1] == "main"
+        assert "expected-sha=" + "b" * 40 in dispatch[0]
+        assert "expected-workflow-sha=" + "a" * 40 in dispatch[0]
 
 
 def test_approval_pin_and_workflow_permissions_remain_read_only_at_execution() -> None:
@@ -309,7 +311,17 @@ def test_approval_pin_and_workflow_permissions_remain_read_only_at_execution() -
     assert "merge" not in expected and "/reviews" not in expected
 
 
-@pytest.mark.parametrize("case", ["match", "moved", "malformed", "ordinary"])
+@pytest.mark.parametrize(
+    "case",
+    [
+        "match",
+        "source-moved",
+        "workflow-moved",
+        "malformed-source",
+        "malformed-workflow",
+        "ordinary",
+    ],
+)
 def test_dispatch_guard_rejects_branch_races_before_package_execution(
     case: str,
 ) -> None:
@@ -324,15 +336,27 @@ def test_dispatch_guard_rejects_branch_races_before_package_execution(
     root = Path(__file__).resolve().parents[2]
     workflow = yaml.safe_load((root / ".github/workflows/ci.yml").read_text())
     script = workflow["jobs"]["check"]["steps"][1]["run"]
+    source = subprocess.check_output(
+        ["git", "rev-parse", "HEAD"], cwd=root, text=True
+    ).strip()
     expected = {
-        "match": "a" * 40,
-        "moved": "b" * 40,
-        "malformed": "not-a-sha",
+        "source-moved": "b" * 40,
+        "malformed-source": "not-a-sha",
         "ordinary": "",
-    }[case]
+    }.get(case, source)
+    expected_workflow = {
+        "workflow-moved": "c" * 40,
+        "malformed-workflow": "not-a-sha",
+    }.get(case, "a" * 40)
     result = subprocess.run(
         [bash, "-c", script],
-        env={**os.environ, "EXPECTED_SHA": expected, "GITHUB_SHA": "a" * 40},
+        env={
+            **os.environ,
+            "EXPECTED_SHA": expected,
+            "EXPECTED_WORKFLOW_SHA": expected_workflow,
+            "GITHUB_SHA": "a" * 40,
+        },
+        cwd=root,
         capture_output=True,
         text=True,
         timeout=15,
