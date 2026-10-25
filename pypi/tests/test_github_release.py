@@ -40,6 +40,8 @@ def release_module() -> object:
         "attestation-failure",
         "wrong-run",
         "wrong-source",
+        "manifest-crlf",
+        "manifest-conflict",
     ],
 )
 def test_verified_release_reconciliation(
@@ -119,7 +121,13 @@ def test_verified_release_reconciliation(
                     }
                 )
             if path.endswith("releases?per_page=100"):
-                if release is None and scenario in ("retry", "partial", "conflict"):
+                if release is None and scenario in (
+                    "retry",
+                    "partial",
+                    "conflict",
+                    "manifest-crlf",
+                    "manifest-conflict",
+                ):
                     release = {
                         "tag_name": "v0.2.0",
                         "draft": scenario == "partial",
@@ -134,6 +142,12 @@ def test_verified_release_reconciliation(
                         release["assets"].append({"name": asset.name})
                     if scenario == "conflict":
                         uploaded[archive.name] = b"different bytes"
+                    if scenario == "manifest-crlf":
+                        uploaded["SHA256SUMS"] = uploaded["SHA256SUMS"].replace(
+                            b"\n", b"\r\n"
+                        )
+                    if scenario == "manifest-conflict":
+                        uploaded["SHA256SUMS"] += b"different checksum record\n"
                 return json.dumps([[release] if release else []])
             if "/releases/tags/" in path or path.endswith("releases/42"):
                 return json.dumps(release)
@@ -179,7 +193,7 @@ def test_verified_release_reconciliation(
         patch.object(module.GitHubRelease, "gh", side_effect=gh),
         patch.object(module.urllib.request, "urlopen", return_value=registry),
     ):
-        if scenario in ("new", "retry", "partial"):
+        if scenario in ("new", "retry", "partial", "manifest-crlf"):
             module.GitHubRelease.publish(directory)
             assert release is not None and not release["draft"]
             assert len(uploaded) == 4
@@ -187,7 +201,7 @@ def test_verified_release_reconciliation(
             with pytest.raises((ValueError, subprocess.CalledProcessError)):
                 module.GitHubRelease.publish(directory)
             assert not any(call[:2] == ("release", "edit") for call in calls)
-    if scenario == "retry":
+    if scenario in ("retry", "manifest-crlf"):
         assert not any(
             call[:2] in (("release", "create"), ("release", "upload")) for call in calls
         )

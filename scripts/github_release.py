@@ -120,6 +120,7 @@ class GitHubRelease:
         checksums.write_text(
             "".join(f"{cls.digest(path)}  {path.name}\n" for path in assets),
             encoding="utf-8",
+            newline="\n",
         )
         assets.append(checksums)
         notes += (
@@ -182,7 +183,16 @@ class GitHubRelease:
                     "--dir",
                     tmp,
                 )
-                if cls.digest(Path(tmp) / asset.name) != cls.digest(asset):
+                downloaded = Path(tmp) / asset.name
+                matches = cls.digest(downloaded) == cls.digest(asset)
+                if asset.name == "SHA256SUMS":
+                    # Historical Windows manifests use CRLF. Preserve those exact
+                    # remote bytes while requiring identical checksum/name records.
+                    matches = (
+                        downloaded.read_bytes().replace(b"\r\n", b"\n")
+                        == asset.read_bytes()
+                    )
+                if not matches:
                     raise ValueError(f"Release asset differs: {asset.name}")
         if cls.api(f"commits/{tag}")["sha"] != source:
             raise ValueError("Source tag changed during reconciliation")

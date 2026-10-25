@@ -84,10 +84,10 @@ jobs:
         \ directory / f\"launchline-{version}.crate.intoto.jsonl\"\n        provenance.write_bytes(downloaded.read_bytes())\n\
         \        assets = [archive, directory / \"publish.json\", provenance]\n        checksums = directory / \"SHA256SUMS\"\
         \n        checksums.write_text(\n            \"\".join(f\"{cls.digest(path)}  {path.name}\\n\" for path in assets),\n\
-        \            encoding=\"utf-8\",\n        )\n        assets.append(checksums)\n        notes += (\n            f\"\
-        \\n### Installation and verification\\n\\n\"\n            f\"`cargo install launchline --version {version} --locked`\\\
-        n\\n\"\n            f\"[crates.io package](https://crates.io/crates/launchline/{version}) \xB7 \"\n            f\"\
-        [Source](https://github.com/{cls.REPO}/tree/{tag}) \xB7 \"\n            f\"[Validated build](https://github.com/{cls.REPO}/actions/runs/{run['id']})\\\
+        \            encoding=\"utf-8\",\n            newline=\"\\n\",\n        )\n        assets.append(checksums)\n    \
+        \    notes += (\n            f\"\\n### Installation and verification\\n\\n\"\n            f\"`cargo install launchline\
+        \ --version {version} --locked`\\n\\n\"\n            f\"[crates.io package](https://crates.io/crates/launchline/{version})\
+        \ \xB7 \"\n            f\"[Source](https://github.com/{cls.REPO}/tree/{tag}) \xB7 \"\n            f\"[Validated build](https://github.com/{cls.REPO}/actions/runs/{run['id']})\\\
         n\\n\"\n            \"Assets contain the published Cargo source archive, registry metadata, \"\n            \"SHA-256\
         \ checksums and signed build provenance.\\n\\n\"\n            f\"`gh attestation verify launchline-{version}.crate\
         \ --repo {cls.REPO} \"\n            f\"--source-digest {source} --deny-self-hosted-runners`\\n\"\n        )\n    \
@@ -107,17 +107,22 @@ jobs:
         \                    cls.gh(\"release\", \"upload\", tag, str(asset), \"--repo\", cls.REPO)\n                cls.gh(\n\
         \                    \"release\",\n                    \"download\",\n                    tag,\n                 \
         \   \"--repo\",\n                    cls.REPO,\n                    \"--pattern\",\n                    asset.name,\n\
-        \                    \"--dir\",\n                    tmp,\n                )\n                if cls.digest(Path(tmp)\
-        \ / asset.name) != cls.digest(asset):\n                    raise ValueError(f\"Release asset differs: {asset.name}\"\
-        )\n        if cls.api(f\"commits/{tag}\")[\"sha\"] != source:\n            raise ValueError(\"Source tag changed during\
-        \ reconciliation\")\n        if release[\"draft\"]:\n            cls.gh(\"release\", \"edit\", tag, \"--repo\", cls.REPO,\
-        \ \"--draft=false\")\n        final = cls.api(f\"releases/tags/{tag}\")\n        if final[\"draft\"] or not {path.name\
-        \ for path in assets}.issubset(\n            {item[\"name\"] for item in final[\"assets\"]}\n        ):\n        \
-        \    raise RuntimeError(\n                \"GitHub release readback is incomplete; reconcile before retry\"\n    \
-        \        )\n        print(f\"Verified complete GitHub release {tag}.\")\n\n    @classmethod\n    def releases(cls)\
-        \ -> list[dict]:\n        \"\"\"Include older drafts and releases when reconciling an existing version.\"\"\"\n  \
-        \      pages = json.loads(\n            cls.gh(\n                \"api\",\n                f\"repos/{cls.REPO}/releases?per_page=100\"\
-        ,\n                \"--paginate\",\n                \"--slurp\",\n            )\n        )\n        return [release\
-        \ for page in pages for release in page]\n\n\nif __name__ == \"__main__\":\n    if os.environ.get(\"GITHUB_RELEASE_VERIFY_ONLY\"\
-        ) == \"1\":\n        GitHubRelease.prepare(Path(\"release\"))\n        print(\"Verified existing registry release,\
-        \ source tag and provenance.\")\n    else:\n        GitHubRelease.publish(Path(\"release\"))\n\nPY\n"
+        \                    \"--dir\",\n                    tmp,\n                )\n                downloaded = Path(tmp)\
+        \ / asset.name\n                matches = cls.digest(downloaded) == cls.digest(asset)\n                if asset.name\
+        \ == \"SHA256SUMS\":\n                    # Historical Windows manifests use CRLF. Preserve those exact\n        \
+        \            # remote bytes while requiring identical checksum/name records.\n                    matches = (\n  \
+        \                      downloaded.read_bytes().replace(b\"\\r\\n\", b\"\\n\")\n                        == asset.read_bytes()\n\
+        \                    )\n                if not matches:\n                    raise ValueError(f\"Release asset differs:\
+        \ {asset.name}\")\n        if cls.api(f\"commits/{tag}\")[\"sha\"] != source:\n            raise ValueError(\"Source\
+        \ tag changed during reconciliation\")\n        if release[\"draft\"]:\n            cls.gh(\"release\", \"edit\",\
+        \ tag, \"--repo\", cls.REPO, \"--draft=false\")\n        final = cls.api(f\"releases/tags/{tag}\")\n        if final[\"\
+        draft\"] or not {path.name for path in assets}.issubset(\n            {item[\"name\"] for item in final[\"assets\"\
+        ]}\n        ):\n            raise RuntimeError(\n                \"GitHub release readback is incomplete; reconcile\
+        \ before retry\"\n            )\n        print(f\"Verified complete GitHub release {tag}.\")\n\n    @classmethod\n\
+        \    def releases(cls) -> list[dict]:\n        \"\"\"Include older drafts and releases when reconciling an existing\
+        \ version.\"\"\"\n        pages = json.loads(\n            cls.gh(\n                \"api\",\n                f\"\
+        repos/{cls.REPO}/releases?per_page=100\",\n                \"--paginate\",\n                \"--slurp\",\n       \
+        \     )\n        )\n        return [release for page in pages for release in page]\n\n\nif __name__ == \"__main__\"\
+        :\n    if os.environ.get(\"GITHUB_RELEASE_VERIFY_ONLY\") == \"1\":\n        GitHubRelease.prepare(Path(\"release\"\
+        ))\n        print(\"Verified existing registry release, source tag and provenance.\")\n    else:\n        GitHubRelease.publish(Path(\"\
+        release\"))\n\nPY\n"

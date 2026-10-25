@@ -14,9 +14,11 @@ are Cargo source distributions, not standalone native binaries.
    publish packages.
 2. Review and merge that PR through normal CI and review rules. The pinned action
    creates its immutable tag and a draft GitHub Release. Neither the workflow nor
-   its token approves or merges PRs. Because bot-created PRs do not trigger normal
-   workflows, the planner dispatches unchanged CI on that PR branch. It never
-   approves pending runs or bypasses branch protections.
+   its token approves or merges PRs. Bot-created PR runs can be suppressed or held
+   for approval; the planner dispatches unchanged read-only CI on that exact PR
+   head. A held pull-request run stays unapproved. If project rules require that
+   PR-context run, a human must approve it normally before merge. Dispatch evidence
+   is not an approval or branch-protection bypass.
 3. Read-only jobs validate the exact source on Windows x64, Linux x64 and macOS
    ARM64. Build the versioned archive once, clean-install its extracted source and
    test real installed CLI/terminal behavior. Retain reviewed release notes inside
@@ -31,6 +33,9 @@ are Cargo source distributions, not standalone native binaries.
    .crate.intoto.jsonl bundle. Existing asset bytes are compared, missing assets
    are uploaded without clobbering, and downloaded again for hash readback before
    publishing a complete draft. Existing public notes and unrelated assets remain.
+   Checksum text is generated with LF on every platform. Legacy CRLF manifests are
+   accepted only when every checksum/name record is identical, preserving their
+   remote bytes; crate, metadata and provenance comparisons remain byte-exact.
 
 The trusted publisher remains mikejhill/launchline-rust, release.yml, environment
 crates-io, restricted to main. OIDC, attestation, source-tag and GitHub writer
