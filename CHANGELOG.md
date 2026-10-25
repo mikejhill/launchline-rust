@@ -1,69 +1,37 @@
 # Changelog
 
-All notable changes to this project will be documented in this file.
-
-The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.1.0/),
-and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
+Rust registry versions use reviewed version/changelog PRs. Earlier development
+snapshots remain in Git history; they were not the crates.io releases below.
 
 ## [Unreleased]
 
-### Menus
+### Release process
 
-- Add nested menus with Back navigation, lazy JSON providers, explicit refresh/retry,
-  configurable parent refresh, and stable selection restoration.
-- Bound generated output, provider timeouts and process cleanup; cache up to 128 menu
-  snapshots with inactive least-recently-used eviction. Existing static configs remain valid.
-- Add shared declaration fixtures, actual provider/terminal tests and seeded menu mutations.
-  See [menu lifecycle and provider contract](docs/menus.md) for examples and limits.
+- Create reviewed release PRs and complete GitHub Release pages with the exact
+  Cargo archive, checksums, metadata and signed provenance after verified registry
+  publication. Repair pages without republishing packages or moving source tags.
 
-### Changed
+## [0.2.0] - 2026-10-25
 
-- **Rewritten from Python to Rust** for native execution; measured results are recorded in docs/validation.
-  The TOML config format is fully compatible — existing config files work unchanged.
-- Pre-built binaries for 6 platforms: Windows (x64, ARM64), macOS (x64, ARM64),
-  Linux (x64, ARM64)
-- Release workflow publishes tested source crates only to crates.io, with immutable source tags
+### Features
 
-### Added
+- Recursive static menus with Back navigation and optional dynamic JSON providers
+  at the root and submenu levels.
+- Retained parent queries, stable selections and cached snapshots; explicit
+  refresh/retry and configurable parent refresh on return.
+- Last-good snapshots after provider errors and bounded output, timeout, nesting,
+  process cleanup and inactive menu caches.
+- Shared configuration/lifecycle fixtures with the separate Python implementation.
 
-- PyPI binary wrapper — `pip install launchline` downloads the correct native
-  binary for your platform
+## [0.1.0] - 2026-10-25
 
-### Removed
+### Features
 
-- Python runtime dependency — LaunchLine is now a single static binary
-- Reverted array syntax for `command` config key; `command` is string-only,
-  use `args` for arguments
+- Publish the native Rust launcher as the crates.io package launchline.
+- Validate configuration and Unicode search/editing, preserve inherited
+  interruption behavior and embed the icon for clean Cargo installations.
+- Verify actual Cargo archives and installed terminal behavior on Windows x64,
+  Linux x64 and macOS ARM64, with signed provenance and scoped OIDC releases.
 
-## [0.2.0] - 2026-03-30
-
-### Added
-
-- `--config-path` CLI flag to print the active configuration file path
-
-### Fixed
-
-- PyPI package page now renders README images correctly (paths are rewritten
-  to absolute URLs during the release build)
-- Release artifacts no longer accidentally include non-distribution files
-- Release workflow now produces correct version numbers (fixed dirty-tree
-  version detection via `SETUPTOOLS_SCM_PRETEND_VERSION`)
-
-## [0.1.0] - 2026-03-30
-
-### Added
-
-- Interactive TUI launcher with numbered shortcuts and fuzzy search
-- TOML configuration with `[settings]` and `[[entries]]` tables
-- Per-entry environment variables and working directory support
-- Configurable on-exit behavior: restart loop or exit
-- Auto-generated starter config on first run
-- Configurable `show_exit` setting to show/hide Exit entry
-- Windows Terminal integration support
-- Cross-platform keyboard handling via crossterm
-- `ghost_text` feature flag for autocomplete hints on the prompt line
-- `numeric_trigger` feature flag for immediate digit-key launching
-- Bundled icon accessible via `launchline --icon-path` for Windows Terminal profiles
-- Cross-platform support (Windows, macOS, Linux)
-- LaunchLine icon (SVG, ICO, PNG) in `assets/`
-- PyPI publishing via GitHub Actions
+[0.2.0]: https://github.com/mikejhill/launchline-rust/compare/v0.1.0...v0.2.0
+[0.1.0]: https://github.com/mikejhill/launchline-rust/tree/v0.1.0

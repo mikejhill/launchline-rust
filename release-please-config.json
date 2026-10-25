@@ -1,0 +1,18 @@
+{
+  "$schema": "https://raw.githubusercontent.com/googleapis/release-please/main/schemas/config.json",
+  "release-type": "rust",
+  "bump-minor-pre-major": true,
+  "bump-patch-for-minor-pre-major": false,
+  "include-component-in-tag": false,
+  "include-v-in-tag": true,
+  "draft": true,
+  "force-tag-creation": true,
+  "pull-request-title-pattern": "chore: release ${version}",
+  "bootstrap-sha": "75260f00a497a8ae3c79ba3eebd912a997cc0012",
+  "packages": {
+    ".": {
+      "package-name": "launchline",
+      "changelog-path": "CHANGELOG.md"
+    }
+  }
+}

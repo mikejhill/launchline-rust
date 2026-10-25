@@ -152,9 +152,7 @@ class TestCratePublisher:
         workflow = yaml.safe_load(
             (root / ".github/workflows/release.yml").read_text(encoding="utf-8")
         )
-        assert (
-            "pypi" not in workflow["jobs"] and "github-release" not in workflow["jobs"]
-        )
+        assert "pypi" not in workflow["jobs"], "Rust packages publish only to crates.io"
         publisher = workflow["jobs"]["crates"]
         assert "github.actor == 'mikejhill'" in publisher["if"]
         assert "github.triggering_actor == 'mikejhill'" in publisher["if"]
@@ -242,7 +240,7 @@ gh() {
         )
         assert result.returncode == expected, result.stderr
         assert "release create" not in body and "release upload" not in body, (
-            "Source tags must not publish GitHub binary distributions"
+            "Source tagging must stay separate from verified GitHub release assets"
         )
 
 
