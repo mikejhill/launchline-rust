@@ -1,7 +1,18 @@
 name: CI
 'on':
   workflow_call: null
-  workflow_dispatch: null
+  workflow_dispatch:
+    inputs:
+      expected-sha:
+        description: Exact validated source commit to check out
+        type: string
+        required: false
+        default: ''
+      expected-workflow-sha:
+        description: Exact main commit providing the trusted CI definition
+        type: string
+        required: false
+        default: ''
   push:
     branches:
     - main
@@ -34,7 +45,21 @@ jobs:
     - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1
       with:
         persist-credentials: false
-        ref: ${{ github.event.pull_request.head.sha || github.sha }}
+        ref: ${{ inputs.expected-sha || github.event.pull_request.head.sha || github.sha }}
+    - name: Validate dispatched source identity
+      if: github.event_name == 'workflow_dispatch'
+      shell: bash
+      env:
+        EXPECTED_SHA: ${{ inputs.expected-sha }}
+        EXPECTED_WORKFLOW_SHA: ${{ inputs.expected-workflow-sha }}
+      run: |
+        set -euo pipefail
+        if [ -n "$EXPECTED_SHA" ]; then
+          [[ "$EXPECTED_SHA" =~ ^[0-9a-f]{40}$ ]]
+          [[ "$EXPECTED_WORKFLOW_SHA" =~ ^[0-9a-f]{40}$ ]]
+          test "$EXPECTED_WORKFLOW_SHA" = "$GITHUB_SHA" || { echo 'Trusted main workflow moved; validate its new definition.' >&2; exit 1; }
+          test "$(git rev-parse HEAD)" = "$EXPECTED_SHA" || { echo 'Checked-out source differs from validated commit.' >&2; exit 1; }
+        fi
     - name: Install pinned Rust toolchain
       run: rustup toolchain install 1.99.1 --profile minimal --component rustfmt --component clippy
     - uses: astral-sh/setup-uv@07a047e608db84b3d8c06cd9a7c7dcc9c355c18e
@@ -43,11 +68,9 @@ jobs:
     - run: cargo test --locked
     - run: cargo build --locked --release
     - name: Format and lint retained test tooling
-      run: 'uv run --locked --project pypi ruff format --check pypi/src pypi/tests scripts
-
+      run: |
+        uv run --locked --project pypi ruff format --check pypi/src pypi/tests scripts
         uv run --locked --project pypi ruff check pypi/src pypi/tests scripts
-
-        '
     - name: Check Python wrapper source
       run: uv run --locked --project pypi ty check pypi/src
     - name: Build verified Cargo archive
@@ -73,8 +96,8 @@ jobs:
       if: always()
       with:
         name: evidence-${{ matrix.os }}
-        path: 'junit.xml
-
-          docs/validation/*json'
+        path: |-
+          junit.xml
+          docs/validation/*json
         if-no-files-found: error
     name: Check

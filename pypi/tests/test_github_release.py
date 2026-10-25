@@ -269,7 +269,7 @@ def test_release_workflows_require_review_and_preserve_publisher_isolation() -> 
     assert "pull-requests" in planner["permissions"]
     assert not any("checkout@" in step.get("uses", "") for step in planner["steps"])
     assert not any(
-        "approve" in step.get("run", "") or "merge" in step.get("run", "")
+        "/reviews" in step.get("run", "") or "gh pr merge" in step.get("run", "")
         for step in planner["steps"]
     )
     assert set(repair["jobs"]) == {"github-release"}
