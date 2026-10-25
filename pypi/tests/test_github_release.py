@@ -229,9 +229,11 @@ def test_verifier_failure_reports_sanitized_diagnostic(release_module: object) -
         ["gh", "attestation", "verify"],
         stderr="bundle file not found\nAuthorization: Bearer fixture-secret\nghs_fixture_secret",
     )
-    with patch.object(release_module.subprocess, "run", side_effect=error):
-        with pytest.raises(RuntimeError) as result:
-            release_module.GitHubRelease.gh("attestation", "verify", "fixture.crate")
+    with (
+        patch.object(release_module.subprocess, "run", side_effect=error),
+        pytest.raises(RuntimeError) as result,
+    ):
+        release_module.GitHubRelease.gh("attestation", "verify", "fixture.crate")
     diagnostic = str(result.value)
     assert "bundle file not found" in diagnostic
     assert "fixture-secret" not in diagnostic and "ghs_fixture_secret" not in diagnostic
