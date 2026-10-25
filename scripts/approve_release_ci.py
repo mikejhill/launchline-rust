@@ -159,6 +159,7 @@ class ReleaseCI:
             and any(
                 item["number"] == pr["number"]
                 and item["head"]["sha"] == pr["head"]["sha"]
+                and item["base"]["sha"] == pr["base"]["sha"]
                 and item["head"]["repo"]["id"] == pr["head"]["repo"]["id"]
                 for item in run["pull_requests"]
             )

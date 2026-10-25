@@ -53,6 +53,7 @@ def approval_module() -> object:
         "head-race",
         "run-race",
         "foreign-run-head",
+        "foreign-run-base",
         "foreign-run-actor",
         "foreign-run-workflow",
         "foreign-run-pr",
@@ -125,7 +126,13 @@ def test_only_version_metadata_and_known_read_only_ci_can_be_approved(
         "repository": {"full_name": service.REPO},
         "head_repository": {"full_name": service.REPO},
         "actor": copy.deepcopy(service.BOT),
-        "pull_requests": [{"number": 4, "head": {"sha": "b" * 40, "repo": {"id": 7}}}],
+        "pull_requests": [
+            {
+                "number": 4,
+                "head": {"sha": "b" * 40, "repo": {"id": 7}},
+                "base": {"sha": "a" * 40},
+            }
+        ],
         "status": "completed",
         "conclusion": "action_required",
     }
@@ -135,6 +142,8 @@ def test_only_version_metadata_and_known_read_only_ci_can_be_approved(
         run["conclusion"] = "success" if scenario == "passed" else "failure"
     if scenario == "foreign-run-head":
         run["head_sha"] = "c" * 40
+    if scenario == "foreign-run-base":
+        run["pull_requests"][0]["base"]["sha"] = "c" * 40
     if scenario == "foreign-run-actor":
         run["actor"]["id"] = 99
     if scenario == "foreign-run-workflow":
@@ -202,6 +211,7 @@ def test_only_version_metadata_and_known_read_only_ci_can_be_approved(
         "passed",
         "no-run",
         "foreign-run-head",
+        "foreign-run-base",
         "foreign-run-actor",
         "foreign-run-workflow",
         "foreign-run-pr",
@@ -228,6 +238,7 @@ def test_only_version_metadata_and_known_read_only_ci_can_be_approved(
         in {
             "no-run",
             "foreign-run-head",
+            "foreign-run-base",
             "foreign-run-actor",
             "foreign-run-workflow",
             "foreign-run-pr",
