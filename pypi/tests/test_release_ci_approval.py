@@ -43,6 +43,8 @@ def approval_module() -> object:
         "fork",
         "wrong-branch",
         "source-change",
+        "immutable-source-change",
+        "immutable-script-added",
         "symlink",
         "ci-capability-change",
         "cargo-dependency-change",
@@ -168,12 +170,34 @@ def test_only_version_metadata_and_known_read_only_ci_can_be_approved(
                 files[0] = "src/main.rs"
             return [{"filename": name, "status": "modified"} for name in files]
         if path.startswith("git/trees/"):
+            head = path.startswith("git/trees/" + "b" * 40)
+            tree = [
+                {
+                    "path": "src/main.rs",
+                    "mode": "100644",
+                    "type": "blob",
+                    "sha": "c" * 40
+                    if scenario == "immutable-source-change" and head
+                    else "d" * 40,
+                },
+            ]
+            if scenario == "immutable-script-added" and head:
+                tree.append(
+                    {
+                        "path": "build.rs",
+                        "mode": "100644",
+                        "type": "blob",
+                        "sha": "e" * 40,
+                    }
+                )
             return {
                 "truncated": False,
-                "tree": [
+                "tree": tree
+                + [
                     {
                         "path": name,
                         "type": "blob",
+                        "sha": "f" * 40,
                         "mode": "120000"
                         if scenario == "symlink" and name == "Cargo.toml"
                         else "100644",

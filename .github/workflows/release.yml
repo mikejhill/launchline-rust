@@ -132,12 +132,18 @@ jobs:
                 ):
                     raise ValueError("Release PR changes more than the four version files")
                 snapshots = {}
+                source_trees = {}
                 for side in ("base", "head"):
                     ref = pr[side]["sha"]
                     tree = cls.api(f"git/trees/{ref}?recursive=1")
                     if tree.get("truncated"):
                         raise ValueError("Cannot validate a truncated source tree")
                     modes = {item["path"]: item for item in tree["tree"]}
+                    source_trees[side] = {
+                        item["path"]: (item["mode"], item["type"], item["sha"])
+                        for item in tree["tree"]
+                        if item["path"] not in cls.FILES
+                    }
                     for path in cls.FILES | {".github/workflows/ci.yml"}:
                         if modes[path]["type"] != "blob" or modes[path]["mode"] != "100644":
                             raise ValueError("Release metadata/CI must remain regular files")
@@ -151,6 +157,8 @@ jobs:
                             cls.content(".release-please-manifest.json", ref)
                         ),
                     }
+                if source_trees["base"] != source_trees["head"]:
+                    raise ValueError("Immutable release trees change non-version source")
                 before, after = snapshots["base"], snapshots["head"]
                 old = before["cargo"]["package"]["version"]
                 new = after["cargo"]["package"]["version"]

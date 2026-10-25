@@ -18,7 +18,7 @@ are Cargo source distributions, not standalone native binaries.
    CI because the bot is a first-time contributor. Using its existing Actions
    permission, the planner approves only that bot's same-repository generated PR
    after verifying the exact head/base, four version files, unchanged dependency
-   records and the pinned read-only CI definition. It executes no PR code with its
+   records, immutable source trees and the pinned read-only CI definition. It executes no PR code with its
    write token. Changed source, workflows, authors or capabilities require review.
    The contributor approval policy and branch protections remain unchanged.
    If GitHub suppresses the PR event entirely, the planner dispatches the same
