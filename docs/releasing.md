@@ -13,12 +13,18 @@ are Cargo source distributions, not standalone native binaries.
    published 0.2.0. Feature/fix merges propose release PRs; they do not immediately
    publish packages.
 2. Review and merge that PR through normal CI and review rules. The pinned action
-   creates its immutable tag and a draft GitHub Release. Neither the workflow nor
-   its token approves or merges PRs. Bot-created PR runs can be suppressed or held
-   for approval; the planner dispatches unchanged read-only CI on that exact PR
-   head. A held pull-request run stays unapproved. If project rules require that
-   PR-context run, a human must approve it normally before merge. Dispatch evidence
-   is not an approval or branch-protection bypass.
+   creates its immutable tag and a draft GitHub Release. The workflow never
+   approves PR reviews or merges PRs. GitHub can hold the release bot's PR-context
+   CI because the bot is a first-time contributor. Using its existing Actions
+   permission, the planner approves only that bot's same-repository generated PR
+   after verifying the exact head/base, four version files, unchanged dependency
+   records and the pinned read-only CI definition. It executes no PR code with its
+   write token. Changed source, workflows, authors or capabilities require review.
+   The contributor approval policy and branch protections remain unchanged.
+   If GitHub suppresses the PR event entirely, the planner dispatches the same
+   read-only CI with an exact-SHA guard that rejects a branch race. Failed CI is
+   never replaced by a dispatch; uncertain approval writes stop for inspection.
+   All required checks and normal merge rules still apply.
 3. Read-only jobs validate the exact source on Windows x64, Linux x64 and macOS
    ARM64. Build the versioned archive once, clean-install its extracted source and
    test real installed CLI/terminal behavior. Retain reviewed release notes inside

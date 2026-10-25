@@ -257,6 +257,7 @@ class TestReleaseCheckParity:
         )
         expected = ci["jobs"]["check"]
         expected["steps"][0]["with"]["ref"] = "${{ github.sha }}"
+        expected["steps"][1]["env"]["EXPECTED_SHA"] = "${{ github.sha }}"
         assert release["jobs"]["ci"] == expected, (
             "Release must retain the complete exact-head test matrix"
         )
