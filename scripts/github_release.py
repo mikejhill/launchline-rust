@@ -21,14 +21,32 @@ class GitHubRelease:
     @staticmethod
     def gh(*args: str) -> str:
         """Run only explicit GitHub CLI arguments, with bounded execution."""
-        return subprocess.run(
-            ["gh", *args],
-            check=True,
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            timeout=120,
-        ).stdout
+        try:
+            return subprocess.run(
+                ["gh", *args],
+                check=True,
+                capture_output=True,
+                text=True,
+                encoding="utf-8",
+                timeout=120,
+            ).stdout
+        except subprocess.CalledProcessError as error:
+            if args[:2] == ("attestation", "verify"):
+                diagnostic = re.sub(
+                    r"(?i)authorization:[^\r\n]*",
+                    "Authorization: [redacted]",
+                    error.stderr or "No verifier diagnostic returned.",
+                )
+                diagnostic = re.sub(
+                    r"(?i)(?:gh[pousr]_|github_pat_)[A-Za-z0-9_]+",
+                    "[redacted]",
+                    diagnostic,
+                )
+                diagnostic = re.sub(r"[\x00-\x08\x0b-\x1f\x7f]", "", diagnostic)
+                raise RuntimeError(
+                    "Attestation verification failed: " + diagnostic[-4000:]
+                ) from None
+            raise
 
     @classmethod
     def api(cls, path: str) -> object:
@@ -96,7 +114,16 @@ class GitHubRelease:
             notes = packaged.extractfile(member).read().decode("utf-8")
         # Fetch and verify the bundle itself before attaching it as an asset.
         cls.gh("attestation", "download", str(archive), "--repo", cls.REPO)
-        downloaded = Path(f"sha256-{digest}.jsonl")
+        # gh uses a colon on POSIX and a dash on Windows. Accept exactly one
+        # known filename; never substitute or skip verification when absent.
+        candidates = [
+            path
+            for separator in (":", "-")
+            if (path := Path(f"sha256{separator}{digest}.jsonl")).is_file()
+        ]
+        if len(candidates) != 1:
+            raise ValueError("Expected exactly one downloaded attestation bundle")
+        downloaded = candidates[0]
         cls.gh(
             "attestation",
             "verify",

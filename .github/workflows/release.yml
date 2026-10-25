@@ -618,19 +618,27 @@ jobs:
         \ tarfile\nimport tempfile\nimport urllib.request\nfrom pathlib import Path\n\n\nclass GitHubRelease:\n    \"\"\"\
         Publish a complete draft only after immutable package and source checks.\"\"\"\n\n    REPO = \"mikejhill/launchline-rust\"\
         \n\n    @staticmethod\n    def gh(*args: str) -> str:\n        \"\"\"Run only explicit GitHub CLI arguments, with\
-        \ bounded execution.\"\"\"\n        return subprocess.run(\n            [\"gh\", *args],\n            check=True,\n\
-        \            capture_output=True,\n            text=True,\n            encoding=\"utf-8\",\n            timeout=120,\n\
-        \        ).stdout\n\n    @classmethod\n    def api(cls, path: str) -> object:\n        \"\"\"Inspect the fixed repository\
-        \ without accepting a supplied remote URL.\"\"\"\n        return json.loads(cls.gh(\"api\", f\"repos/{cls.REPO}/{path}\"\
-        ))\n\n    @staticmethod\n    def digest(path: Path) -> str:\n        \"\"\"Hash the exact local bytes rather than\
-        \ trusting filenames or asset sizes.\"\"\"\n        return hashlib.sha256(path.read_bytes()).hexdigest()\n\n    @classmethod\n\
-        \    def prepare(cls, directory: Path) -> tuple[str, str, str, list[Path]]:\n        \"\"\"Require registry checksum,\
-        \ exact tag/source and verified build provenance.\"\"\"\n        record = json.loads((directory / \"publish.json\"\
-        ).read_text(encoding=\"utf-8\"))\n        version = os.environ[\"VERSION\"]\n        source = record[\"source_sha\"\
-        ]\n        if (\n            re.fullmatch(r\"[0-9]+\\.[0-9]+\\.[0-9]+\", version) is None\n            or re.fullmatch(r\"\
-        [0-9a-f]{40}\", source) is None\n            or os.environ.get(\"SOURCE_SHA\", source) != source\n            or record[\"\
-        package\"][\"name\"] != \"launchline\"\n            or record[\"package\"][\"vers\"] != version\n            or record[\"\
-        package\"][\"repository\"] != f\"https://github.com/{cls.REPO}\"\n            or record[\"crate_file\"] != f\"launchline-{version}.crate\"\
+        \ bounded execution.\"\"\"\n        try:\n            return subprocess.run(\n                [\"gh\", *args],\n \
+        \               check=True,\n                capture_output=True,\n                text=True,\n                encoding=\"\
+        utf-8\",\n                timeout=120,\n            ).stdout\n        except subprocess.CalledProcessError as error:\n\
+        \            if args[:2] == (\"attestation\", \"verify\"):\n                diagnostic = re.sub(\n               \
+        \     r\"(?i)authorization:[^\\r\\n]*\",\n                    \"Authorization: [redacted]\",\n                   \
+        \ error.stderr or \"No verifier diagnostic returned.\",\n                )\n                diagnostic = re.sub(\n\
+        \                    r\"(?i)(?:gh[pousr]_|github_pat_)[A-Za-z0-9_]+\",\n                    \"[redacted]\",\n    \
+        \                diagnostic,\n                )\n                diagnostic = re.sub(r\"[\\x00-\\x08\\x0b-\\x1f\\\
+        x7f]\", \"\", diagnostic)\n                raise RuntimeError(\n                    \"Attestation verification failed:\
+        \ \" + diagnostic[-4000:]\n                ) from None\n            raise\n\n    @classmethod\n    def api(cls, path:\
+        \ str) -> object:\n        \"\"\"Inspect the fixed repository without accepting a supplied remote URL.\"\"\"\n   \
+        \     return json.loads(cls.gh(\"api\", f\"repos/{cls.REPO}/{path}\"))\n\n    @staticmethod\n    def digest(path:\
+        \ Path) -> str:\n        \"\"\"Hash the exact local bytes rather than trusting filenames or asset sizes.\"\"\"\n \
+        \       return hashlib.sha256(path.read_bytes()).hexdigest()\n\n    @classmethod\n    def prepare(cls, directory:\
+        \ Path) -> tuple[str, str, str, list[Path]]:\n        \"\"\"Require registry checksum, exact tag/source and verified\
+        \ build provenance.\"\"\"\n        record = json.loads((directory / \"publish.json\").read_text(encoding=\"utf-8\"\
+        ))\n        version = os.environ[\"VERSION\"]\n        source = record[\"source_sha\"]\n        if (\n           \
+        \ re.fullmatch(r\"[0-9]+\\.[0-9]+\\.[0-9]+\", version) is None\n            or re.fullmatch(r\"[0-9a-f]{40}\", source)\
+        \ is None\n            or os.environ.get(\"SOURCE_SHA\", source) != source\n            or record[\"package\"][\"\
+        name\"] != \"launchline\"\n            or record[\"package\"][\"vers\"] != version\n            or record[\"package\"\
+        ][\"repository\"] != f\"https://github.com/{cls.REPO}\"\n            or record[\"crate_file\"] != f\"launchline-{version}.crate\"\
         \n        ):\n            raise ValueError(\"Unexpected release identity\")\n        archive = directory / record[\"\
         crate_file\"]\n        if not 0 < archive.stat().st_size <= 10 * 1024 * 1024:\n            raise ValueError(\"Unexpected\
         \ archive size\")\n        digest = cls.digest(archive)\n        if digest != record[\"sha256\"]:\n            raise\
@@ -652,33 +660,37 @@ jobs:
         release-changelog.md\")\n            if member.size > 256 * 1024:\n                raise ValueError(\"Release notes\
         \ exceed boundary\")\n            notes = packaged.extractfile(member).read().decode(\"utf-8\")\n        # Fetch and\
         \ verify the bundle itself before attaching it as an asset.\n        cls.gh(\"attestation\", \"download\", str(archive),\
-        \ \"--repo\", cls.REPO)\n        downloaded = Path(f\"sha256-{digest}.jsonl\")\n        cls.gh(\n            \"attestation\"\
-        ,\n            \"verify\",\n            str(archive),\n            \"--repo\",\n            cls.REPO,\n          \
-        \  \"--bundle\",\n            str(downloaded),\n            \"--source-digest\",\n            source,\n          \
-        \  \"--source-ref\",\n            \"refs/heads/main\",\n            \"--deny-self-hosted-runners\",\n            \"\
-        --signer-workflow\",\n            f\"{cls.REPO}/.github/workflows/release.yml\",\n        )\n        provenance =\
-        \ directory / f\"launchline-{version}.crate.intoto.jsonl\"\n        provenance.write_bytes(downloaded.read_bytes())\n\
-        \        assets = [archive, directory / \"publish.json\", provenance]\n        checksums = directory / \"SHA256SUMS\"\
-        \n        checksums.write_text(\n            \"\".join(f\"{cls.digest(path)}  {path.name}\\n\" for path in assets),\n\
-        \            encoding=\"utf-8\",\n            newline=\"\\n\",\n        )\n        assets.append(checksums)\n    \
-        \    notes += (\n            f\"\\n### Installation and verification\\n\\n\"\n            f\"`cargo install launchline\
-        \ --version {version} --locked`\\n\\n\"\n            f\"[crates.io package](https://crates.io/crates/launchline/{version})\
-        \ \xB7 \"\n            f\"[Source](https://github.com/{cls.REPO}/tree/{tag}) \xB7 \"\n            f\"[Validated build](https://github.com/{cls.REPO}/actions/runs/{run['id']})\\\
-        n\\n\"\n            \"Assets contain the published Cargo source archive, registry metadata, \"\n            \"SHA-256\
-        \ checksums and signed build provenance.\\n\\n\"\n            f\"`gh attestation verify launchline-{version}.crate\
-        \ --repo {cls.REPO} \"\n            f\"--source-digest {source} --deny-self-hosted-runners`\\n\"\n        )\n    \
-        \    return tag, source, notes, assets\n\n    @classmethod\n    def publish(cls, directory: Path) -> None:\n     \
-        \   \"\"\"Resume drafts/missing assets; reject conflicting bytes without clobbering.\"\"\"\n        tag, source, notes,\
-        \ assets = cls.prepare(directory)\n        releases = cls.releases()\n        release = next((item for item in releases\
-        \ if item[\"tag_name\"] == tag), None)\n        if release is None:\n            body = directory / \"github-release-notes.md\"\
-        \n            body.write_text(notes, encoding=\"utf-8\")\n            cls.gh(\n                \"release\",\n    \
-        \            \"create\",\n                tag,\n                \"--repo\",\n                cls.REPO,\n         \
-        \       \"--verify-tag\",\n                \"--target\",\n                source,\n                \"--draft\",\n\
-        \                \"--title\",\n                tag,\n                \"--notes-file\",\n                str(body),\n\
-        \            )\n            # A network failure never retries creation blindly; the next run lists again.\n      \
-        \      identity = json.loads(\n                cls.gh(\n                    \"release\", \"view\", tag, \"--repo\"\
-        , cls.REPO, \"--json\", \"databaseId\"\n                )\n            )\n            release = cls.api(f\"releases/{identity['databaseId']}\"\
-        )\n        existing = {item[\"name\"] for item in release[\"assets\"]}\n        with tempfile.TemporaryDirectory(prefix=\"\
+        \ \"--repo\", cls.REPO)\n        # gh uses a colon on POSIX and a dash on Windows. Accept exactly one\n        # known\
+        \ filename; never substitute or skip verification when absent.\n        candidates = [\n            path\n       \
+        \     for separator in (\":\", \"-\")\n            if (path := Path(f\"sha256{separator}{digest}.jsonl\")).is_file()\n\
+        \        ]\n        if len(candidates) != 1:\n            raise ValueError(\"Expected exactly one downloaded attestation\
+        \ bundle\")\n        downloaded = candidates[0]\n        cls.gh(\n            \"attestation\",\n            \"verify\"\
+        ,\n            str(archive),\n            \"--repo\",\n            cls.REPO,\n            \"--bundle\",\n        \
+        \    str(downloaded),\n            \"--source-digest\",\n            source,\n            \"--source-ref\",\n    \
+        \        \"refs/heads/main\",\n            \"--deny-self-hosted-runners\",\n            \"--signer-workflow\",\n \
+        \           f\"{cls.REPO}/.github/workflows/release.yml\",\n        )\n        provenance = directory / f\"launchline-{version}.crate.intoto.jsonl\"\
+        \n        provenance.write_bytes(downloaded.read_bytes())\n        assets = [archive, directory / \"publish.json\"\
+        , provenance]\n        checksums = directory / \"SHA256SUMS\"\n        checksums.write_text(\n            \"\".join(f\"\
+        {cls.digest(path)}  {path.name}\\n\" for path in assets),\n            encoding=\"utf-8\",\n            newline=\"\
+        \\n\",\n        )\n        assets.append(checksums)\n        notes += (\n            f\"\\n### Installation and verification\\\
+        n\\n\"\n            f\"`cargo install launchline --version {version} --locked`\\n\\n\"\n            f\"[crates.io\
+        \ package](https://crates.io/crates/launchline/{version}) \xB7 \"\n            f\"[Source](https://github.com/{cls.REPO}/tree/{tag})\
+        \ \xB7 \"\n            f\"[Validated build](https://github.com/{cls.REPO}/actions/runs/{run['id']})\\n\\n\"\n    \
+        \        \"Assets contain the published Cargo source archive, registry metadata, \"\n            \"SHA-256 checksums\
+        \ and signed build provenance.\\n\\n\"\n            f\"`gh attestation verify launchline-{version}.crate --repo {cls.REPO}\
+        \ \"\n            f\"--source-digest {source} --deny-self-hosted-runners`\\n\"\n        )\n        return tag, source,\
+        \ notes, assets\n\n    @classmethod\n    def publish(cls, directory: Path) -> None:\n        \"\"\"Resume drafts/missing\
+        \ assets; reject conflicting bytes without clobbering.\"\"\"\n        tag, source, notes, assets = cls.prepare(directory)\n\
+        \        releases = cls.releases()\n        release = next((item for item in releases if item[\"tag_name\"] == tag),\
+        \ None)\n        if release is None:\n            body = directory / \"github-release-notes.md\"\n            body.write_text(notes,\
+        \ encoding=\"utf-8\")\n            cls.gh(\n                \"release\",\n                \"create\",\n          \
+        \      tag,\n                \"--repo\",\n                cls.REPO,\n                \"--verify-tag\",\n         \
+        \       \"--target\",\n                source,\n                \"--draft\",\n                \"--title\",\n     \
+        \           tag,\n                \"--notes-file\",\n                str(body),\n            )\n            # A network\
+        \ failure never retries creation blindly; the next run lists again.\n            identity = json.loads(\n        \
+        \        cls.gh(\n                    \"release\", \"view\", tag, \"--repo\", cls.REPO, \"--json\", \"databaseId\"\
+        \n                )\n            )\n            release = cls.api(f\"releases/{identity['databaseId']}\")\n      \
+        \  existing = {item[\"name\"] for item in release[\"assets\"]}\n        with tempfile.TemporaryDirectory(prefix=\"\
         launchline-release-assets-\") as tmp:\n            for asset in assets:\n                if asset.name not in existing:\n\
         \                    cls.gh(\"release\", \"upload\", tag, str(asset), \"--repo\", cls.REPO)\n                cls.gh(\n\
         \                    \"release\",\n                    \"download\",\n                    tag,\n                 \
