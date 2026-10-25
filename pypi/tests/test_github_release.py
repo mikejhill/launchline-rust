@@ -7,6 +7,7 @@ import importlib.util
 import io
 import json
 import subprocess
+import sys
 import tarfile
 import tomllib
 from pathlib import Path
@@ -40,6 +41,10 @@ def release_module() -> object:
         "attestation-failure",
         "wrong-run",
         "wrong-source",
+        "manifest-crlf",
+        "manifest-conflict",
+        "posix-bundle",
+        "missing-bundle",
     ],
 )
 def test_verified_release_reconciliation(
@@ -50,6 +55,10 @@ def test_verified_release_reconciliation(
 ) -> None:
     """Never publish a draft with missing/conflicting/unverified assets or source."""
     module = release_module
+    if scenario == "posix-bundle" and sys.platform == "win32":
+        pytest.skip(
+            "The POSIX gh filename contains a colon, unsupported by Windows filesystems"
+        )
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("VERSION", "0.2.0")
     monkeypatch.setenv("SOURCE_RUN_ID", "42")
@@ -92,10 +101,16 @@ def test_verified_release_reconciliation(
         nonlocal release
         calls.append(args)
         if args[:2] == ("attestation", "download"):
-            Path(f"sha256-{digest}.jsonl").write_bytes(b"signed-bundle\n")
+            if scenario != "missing-bundle":
+                separator = ":" if scenario == "posix-bundle" else "-"
+                Path(f"sha256{separator}{digest}.jsonl").write_bytes(b"signed-bundle\n")
         elif args[:2] == ("attestation", "verify"):
             assert "--source-digest" in args and "--source-ref" in args
             assert "--deny-self-hosted-runners" in args and "--signer-workflow" in args
+            assert (
+                Path(args[args.index("--bundle") + 1]).read_bytes()
+                == b"signed-bundle\n"
+            )
             if scenario == "attestation-failure":
                 raise subprocess.CalledProcessError(1, args)
         elif args[0] == "api":
@@ -119,7 +134,13 @@ def test_verified_release_reconciliation(
                     }
                 )
             if path.endswith("releases?per_page=100"):
-                if release is None and scenario in ("retry", "partial", "conflict"):
+                if release is None and scenario in (
+                    "retry",
+                    "partial",
+                    "conflict",
+                    "manifest-crlf",
+                    "manifest-conflict",
+                ):
                     release = {
                         "tag_name": "v0.2.0",
                         "draft": scenario == "partial",
@@ -134,6 +155,12 @@ def test_verified_release_reconciliation(
                         release["assets"].append({"name": asset.name})
                     if scenario == "conflict":
                         uploaded[archive.name] = b"different bytes"
+                    if scenario == "manifest-crlf":
+                        uploaded["SHA256SUMS"] = uploaded["SHA256SUMS"].replace(
+                            b"\n", b"\r\n"
+                        )
+                    if scenario == "manifest-conflict":
+                        uploaded["SHA256SUMS"] += b"different checksum record\n"
                 return json.dumps([[release] if release else []])
             if "/releases/tags/" in path or path.endswith("releases/42"):
                 return json.dumps(release)
@@ -179,7 +206,7 @@ def test_verified_release_reconciliation(
         patch.object(module.GitHubRelease, "gh", side_effect=gh),
         patch.object(module.urllib.request, "urlopen", return_value=registry),
     ):
-        if scenario in ("new", "retry", "partial"):
+        if scenario in ("new", "retry", "partial", "manifest-crlf", "posix-bundle"):
             module.GitHubRelease.publish(directory)
             assert release is not None and not release["draft"]
             assert len(uploaded) == 4
@@ -187,12 +214,30 @@ def test_verified_release_reconciliation(
             with pytest.raises((ValueError, subprocess.CalledProcessError)):
                 module.GitHubRelease.publish(directory)
             assert not any(call[:2] == ("release", "edit") for call in calls)
-    if scenario == "retry":
+    if scenario in ("retry", "manifest-crlf"):
         assert not any(
             call[:2] in (("release", "create"), ("release", "upload")) for call in calls
         )
     if scenario == "uncertain-upload":
         assert len([call for call in calls if call[:2] == ("release", "upload")]) == 1
+
+
+def test_verifier_failure_reports_sanitized_diagnostic(release_module: object) -> None:
+    """Keep the verification gate strict and make its public failure diagnosable."""
+    error = subprocess.CalledProcessError(
+        1,
+        ["gh", "attestation", "verify"],
+        stderr="bundle file not found\nAuthorization: Bearer fixture-secret\nghs_fixture_secret",
+    )
+    with (
+        patch.object(release_module.subprocess, "run", side_effect=error),
+        pytest.raises(RuntimeError) as result,
+    ):
+        release_module.GitHubRelease.gh("attestation", "verify", "fixture.crate")
+    diagnostic = str(result.value)
+    assert "bundle file not found" in diagnostic
+    assert "fixture-secret" not in diagnostic and "ghs_fixture_secret" not in diagnostic
+    assert "[redacted]" in diagnostic
 
 
 def test_release_workflows_require_review_and_preserve_publisher_isolation() -> None:
