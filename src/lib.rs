@@ -6,3 +6,7 @@ pub mod fuzzy;
 pub mod runner;
 pub mod ui;
 pub mod util;
+
+pub mod providers;
+
+pub mod menus;

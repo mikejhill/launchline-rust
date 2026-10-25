@@ -136,6 +136,9 @@ fn real_child_receives_literal_args_environment_cwd_and_exit() {
         description: String::new(),
         working_directory: Some(fixture.0.clone()),
         env: HashMap::from([("LL_CONTRACT".into(), "a b & literal".into())]),
+
+        id: String::new(),
+        menu: None,
     };
     let config = LaunchLineConfig {
         entries: vec![entry.clone()],
@@ -145,6 +148,9 @@ fn real_child_receives_literal_args_environment_cwd_and_exit() {
         clear_on_launch: false,
         ghost_text: true,
         numeric_trigger: true,
+
+        provider: None,
+        refresh_on_return: false,
     };
     assert_eq!(EntryRunner::new(&config).launch(&entry).unwrap(), 7);
     let observed = fs::read_to_string(output).unwrap();
@@ -206,6 +212,9 @@ fn child_sigterm_uses_shell_status() {
         description: String::new(),
         working_directory: None,
         env: HashMap::new(),
+
+        id: String::new(),
+        menu: None,
     };
     let config = LaunchLineConfig {
         entries: vec![entry.clone()],
@@ -215,6 +224,9 @@ fn child_sigterm_uses_shell_status() {
         clear_on_launch: false,
         ghost_text: true,
         numeric_trigger: true,
+
+        provider: None,
+        refresh_on_return: false,
     };
     assert_eq!(
         EntryRunner::new(&config).launch(&entry).unwrap(),

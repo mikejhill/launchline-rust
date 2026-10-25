@@ -1,0 +1,51 @@
+{
+  "host": "MHILL-LAPTOP",
+  "platform": "Windows ConPTY",
+  "probe": "raw ESC+0 byte burst after nonempty search",
+  "python": "did not exit; query became nomatch0",
+  "rust": "did not exit; query retained",
+  "interpretation": "Observed ConPTY consumes ESC from ESC+0 before msvcrt receives input (only codepoint 48 remains). Application-level read-ahead cannot recover a discarded event. Rust burst failure is observed separately; its native event boundary was not instrumented.",
+  "validation_change": "retain real Escape-clear then numeric-exit scenario with unique prompt readiness; do not claim indistinguishable byte bursts are physical key events",
+  "msvcrt_boundary_probe": [
+    {
+      "input": "bare-escape",
+      "requested": [
+        27
+      ],
+      "msvcrt_received": [
+        27
+      ]
+    },
+    {
+      "input": "escape-digit-burst",
+      "requested": [
+        27,
+        48
+      ],
+      "msvcrt_received": [
+        48
+      ]
+    },
+    {
+      "input": "kitty-disambiguated",
+      "requested": [
+        27,
+        91,
+        50,
+        55,
+        117,
+        48
+      ],
+      "msvcrt_received": [
+        27,
+        91,
+        50,
+        55,
+        117,
+        48
+      ]
+    }
+  ],
+  "kitty_escape_burst_python_windows": "passed: clears query then queued 0 exits",
+  "kitty_escape_burst_rust_windows": "unsupported native-console protocol: query became nomatch[27u0; recovery uses Ctrl+U then 0"
+}

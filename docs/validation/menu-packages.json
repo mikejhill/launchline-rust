@@ -1,0 +1,12 @@
+[
+  {
+    "artifact": "pypi\\dist\\launchline_rust-0.3.0-py3-none-any.whl",
+    "sha256": "0f08fb5a627a8ac74d13c77373e08011e27f72db049ad791b28fe79ba37cde54",
+    "scope": "local feature snapshot, not published release"
+  },
+  {
+    "artifact": "release\\launchline-windows-x64.zip",
+    "sha256": "4b3afbb3dde3bae7aeeb2dded801c9c13c28168124d5b6dae61af8401f8ea38f",
+    "scope": "local feature snapshot, not published release"
+  }
+]
