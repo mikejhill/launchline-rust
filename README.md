@@ -48,7 +48,8 @@ cargo install launchline --locked
 
 Cargo builds the native executable. The CI-validated build toolchain is Rust 1.99.1;
 the installed application does not require Python. Source version tags identify
-published crates; this repository does not publish standalone GitHub binary releases.
+published crates. GitHub Releases provide release notes, the exact Cargo archive,
+checksums and signed provenance; standalone native binary bundles are not produced.
 
 ### Build a checkout
 

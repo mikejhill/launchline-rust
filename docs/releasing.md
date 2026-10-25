@@ -1,63 +1,71 @@
-# crates.io-only release process
+# Reviewed releases to crates.io and GitHub
 
-Rust LaunchLine is distributed as crate `launchline` on crates.io. `cargo install
-launchline --locked` builds the native executable; Python is not a runtime requirement.
-The separate Python implementation remains the `launchline` PyPI project.
-No Rust PyPI wrapper or standalone GitHub binary releases are published.
+Every released version must have a public GitHub Release with useful notes and
+the exact registry distribution, checksums and signed provenance. A registry
+upload or source tag alone is not a complete release. Rust packages publish only
+to crates.io; the separate Python implementation uses PyPI. GitHub assets here
+are Cargo source distributions, not standalone native binaries.
 
-Owner merges to main calculate conventional-commit versions from immutable source
-tags using pinned semantic-release 2.31.0 and checksum-pinned Git provider/plugins.
-Read-only jobs check the exact merge, build/compile its `.crate`, clean-install its
-extracted source, and run actual installed CLI/terminal behavior. The icon is embedded
-so Cargo installs retain `--icon-path` without adjacent archive assets.
+## Normal process
 
-The publisher consumes only same-run `.crate` and registry metadata artifacts. It
-does not check out source or execute package/build scripts. It validates name,
-version, source commit, checksum, main ancestry and tag conflicts before requesting
-an ephemeral token through the immutable official crates.io OIDC action. Upload uses
-Cargo's documented fixed crates.io API protocol; authenticated redirects are rejected.
-An exact-checksum existing version is a safe retry; a conflicting version fails.
-Uncertain upload outcomes fail for readback before any retry. Provenance covers
-the tested crate and metadata. A source-only `v*` tag is created after registry
-checksum verification; no GitHub Release or binary asset upload occurs.
+1. Conventional commits update a release-please PR containing the proposed Cargo
+   version, lockfile, changelog and release manifest. The bootstrap is the already
+   published 0.2.0. Feature/fix merges propose release PRs; they do not immediately
+   publish packages.
+2. Review and merge that PR through normal CI and review rules. The pinned action
+   creates its immutable tag and a draft GitHub Release. Neither the workflow nor
+   its token approves or merges PRs. Because bot-created PRs do not trigger normal
+   workflows, the planner dispatches unchanged CI on that PR branch. It never
+   approves pending runs or bypasses branch protections.
+3. Read-only jobs validate the exact source on Windows x64, Linux x64 and macOS
+   ARM64. Build the versioned archive once, clean-install its extracted source and
+   test real installed CLI/terminal behavior. Retain reviewed release notes inside
+   the archive as release-changelog.md.
+4. Attest the same-run .crate and publish.json. The isolated registry publisher
+   checks source ancestry, tag identity, metadata and checksums before requesting
+   an ephemeral crates.io OIDC token. It neither checks out nor executes package
+   source. Exact-checksum registry retries succeed; different bytes fail.
+5. After verified registry publication and tagging, a separate GitHub writer
+   consumes that exact artifact. It checks the original run, embedded source and
+   signed provenance, then attaches the .crate, publish.json, SHA256SUMS and
+   .crate.intoto.jsonl bundle. Existing asset bytes are compared, missing assets
+   are uploaded without clobbering, and downloaded again for hash readback before
+   publishing a complete draft. Existing public notes and unrelated assets remain.
 
-Both actor and rerun initiator must be mikejhill on main. OIDC, attestation and
-source-tag permissions are isolated to their jobs. Non-release commits skip build
-and publication. Modernization publishes before the nested/dynamic menu feature.
+The trusted publisher remains mikejhill/launchline-rust, release.yml, environment
+crates-io, restricted to main. OIDC, attestation, source-tag and GitHub writer
+permissions stay isolated. Default Actions token permission remains read-only.
+No Rust PyPI credentials, long-lived publishing token or new trust is required.
 
-## Registry setup pending explicit approval
+## Repair and retry
 
-The launchline crates.io lookup returned 404; a name is not reserved until first
-publication. The logged-in account's token page shows no existing API tokens, and
-Cargo has no token environment variable, credential file or configured provider.
-No credential or registry trust has been created. Official crates.io guidance
-requires a first manual release before configuring Trusted Publishing.
+For uncertain registry uploads, inspect the exact version/checksum before retrying
+the failed job. Never bump a version merely to repair a page. After successful
+registry publication, run Repair GitHub release assets (repair-github-release.yml)
+on main with the published version and original successful release.yml run ID.
+This route cannot build, publish packages, create or move tags. It requires the
+retained trusted-crate artifact and signed provenance, and rejects different
+existing bytes rather than replacing them.
 
-The exact bootstrap proposal is a 24-hour token named `launchline-bootstrap-YYYYMMDD`,
-with only `publish-new` and exact crate pattern `launchline` (no wildcard). Initial
-publication enforces that name restriction too. The token is used only in memory by
-one upload process for the tested initial crate, is not stored in Cargo credentials,
-GitHub secrets, repository files or chat, and is revoked after verified publication.
-Then configure Trusted Publishing for
-crate `launchline`, GitHub repository `mikejhill/launchline-rust`, workflow `release.yml`,
-environment `crates-io`. A separate main-only `crates-io` GitHub environment with no
-reviewers is required before merging; it is not created implicitly by this task.
-Account `mikejhill` is verified from the logged-in profile. It has no email address
-configured: Mike must add and verify his chosen email through the registry profile
-before first publication. The token, registry trust and new environment require the
-explicit bundled approval; no credential is created before that approval. The old unused `pypi` environment remains inert and unchanged.
+| Version | Original run | Immutable source |
+| --- | --- | --- |
+| 0.1.0 | 40013902606 | d5482ad782114ee7cfaa4b211e01c447a038b24a |
+| 0.2.0 | 40216338286 | 75260f00a497a8ae3c79ba3eebd912a997cc0012 |
+
+Run artifacts expire after seven days. After expiry, recover exact public crate
+and metadata assets from the GitHub Release and verify provenance before repair;
+do not rebuild existing versions. Uncertain writes stop without automatic retries:
+inspect the specific draft/release and rerun reconciliation to reuse matching
+bytes. A failed package publication leaves the GitHub Release draft.
 
 ## Validation
 
-Run `cargo fmt --check`, `cargo clippy --locked --all-targets -- -D warnings`,
-`cargo test --locked`, `cargo publish --dry-run --locked --allow-dirty`, then
-`uv run --locked --project pypi python scripts/build_crate.py` and
-`uv run --locked --project pypi python scripts/crate_install_smoke.py`.
-Generated version notes are retained inside release crates as `release-changelog.md`.
-The historical pypi directory supplies retained Python >=3.11 test tooling only; its
-wrapper source is preserved but excluded from the Cargo payload and publishing.
-Offline policy tests intercept every registry/GitHub request; no test publishes.
+Run the focused offline tests under pypi/tests, Ruff, Rust format/Clippy/tests and
+existing Cargo archive/clean-install CI. Fixtures cover first creation, complete
+retry, partial drafts, conflicting assets, uncertain writes, registry/tag/source/
+run conflicts and failed attestation. Both workflows inline the same tested
+standard-library helper without source checkout under release-write credentials.
 
-Sources: https://doc.rust-lang.org/cargo/reference/registry-web-api.html#publish ,
-https://doc.rust-lang.org/cargo/reference/publishing.html , and
-https://blog.rust-lang.org/2025/07/11/crates-io-development-update-2025-07/ .
+Independently verify a crate with gh attestation verify, the repository and exact
+source digest; compare SHA256SUMS with crates.io. This follows VerdiClip's reviewed
+release-PR and distribution pattern, retaining Rust's registry and failure order.
