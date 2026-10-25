@@ -2,10 +2,24 @@
 
 # Nested and dynamic menu validation
 
-This feature is implemented locally and awaits exact-head hosted CI and release
-ordering. Python modernization v0.3.0 is already published; Rust modernization
-remains unmerged pending the main-only `pypi` environment approval. No settings or
-publisher trust registrations were changed. Python feature release follows its completed modernization; Rust feature release follows Rust modernization.
+The Rust modernization is published as crate `launchline` 0.1.0. Its source tag
+and crates.io trusted publisher are configured, and the original GitHub release
+run succeeded through OIDC authentication and checksum-matched publication
+readback on October 25. The nested-menu feature still requires final Python/Rust
+parity review and exact-head hosted CI before merge and its normal release.
+
+October 25 Rust lifecycle review adds regressions for unchanged child-cache and
+view preservation across a parent rename, failed refresh on Back without retry
+loops, cancellation propagation without losing a good snapshot, and the exact
+16-level navigation boundary without executing a rejected provider. Local Windows
+validation passes 85 unit tests, 6 baseline integration tests and 13 menu
+integration tests, strict Clippy and rustfmt. The shared declaration/provider
+fixture remains unchanged and byte-identical to the Python feature fixture.
+
+The Windows Kitty-sequence difference below concerns explicit unnegotiated byte
+injection, not ordinary Escape key events or menu configuration. Native keyboard
+Escape, the Back/Exit rows and Ctrl+U are the shared supported interaction. No
+equivalence is claimed for an unsupported terminal protocol.
 
 | Contract | Evidence in both implementations |
 | --- | --- |
