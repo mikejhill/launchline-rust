@@ -236,8 +236,9 @@ timeouts, caching, limits and failure/retry behavior.
 ## Windows Terminal Integration
 
 Add LaunchLine as a Windows Terminal profile to use it as your default launcher.
-The `--icon-path` flag prints the path to the bundled icon (place the `assets/`
-directory next to the `launchline` binary):
+The `--icon-path` flag prints a usable icon path. If no icon sits beside the
+executable, the Cargo-installed application extracts its embedded icon into a
+versioned user cache. Paste the printed path into the profile:
 
 ```jsonc
 // In your Windows Terminal settings.json → profiles.list
