@@ -3,6 +3,18 @@
 Rust registry versions use reviewed version/changelog PRs. Earlier development
 snapshots remain in Git history; they were not the crates.io releases below.
 
+## [0.2.1](https://github.com/mikejhill/launchline-rust/compare/v0.2.0...v0.2.1) (2026-10-29)
+
+
+### Bug Fixes
+
+* bind release approval to immutable source trees ([75a3dc7](https://github.com/mikejhill/launchline-rust/commit/75a3dc7809837c87ac3eecbe051c2ebf79ebd30c))
+* complete reviewed GitHub releases with verified assets ([8dfdd3b](https://github.com/mikejhill/launchline-rust/commit/8dfdd3b8916be8fb9c4d1ecc294d6341af9031fd))
+* dispatch fallback CI only from trusted main ([ee01752](https://github.com/mikejhill/launchline-rust/commit/ee01752a6d7f24746eac36c4111f4026c5a50d0d))
+* make release recovery portable across Windows and Linux ([929d8dc](https://github.com/mikejhill/launchline-rust/commit/929d8dceee467c537498d8d5d0f16ed8a24e282a))
+* validate trusted bot release CI before approving runs ([fc9b1b7](https://github.com/mikejhill/launchline-rust/commit/fc9b1b78aeee61f3de4fdc6f66bcbca601e33333))
+* validate trusted release PRs before approving CI runs ([1af6377](https://github.com/mikejhill/launchline-rust/commit/1af63776d44b69d35d3c32bbc25d624e123c742a))
+
 ## [Unreleased]
 
 ### Release process
