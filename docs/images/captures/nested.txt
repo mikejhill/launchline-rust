@@ -1,24 +1,22 @@
-╭────────────────────────────────────────────────────────────────────────╮                          
-│ LaunchLine menus / Development tools                                   │                          
-│ Select a tool to launch.                                               │                          
-╰────────────────────────────────────────────────────────────────────────╯                          
- ~\Projects\_meta\scratch\codex\2026-10-28\task-2\launchline-rust                                   
-────────────────────────────────────────────────────────────────────────────────────────────────────
-❯  (Git version)                                                                                    
-────────────────────────────────────────────────────────────────────────────────────────────────────
-  ▸ 1  Git version                                                                                  
-    2  Back         Return to parent menu                                                           
-    0  Exit         Close the launcher                                                              
-                                                                                                    
-                                                                                                    
-                                                                                                    
-                                                                                                    
-                                                                                                    
-                                                                                                    
-                                                                                                    
-                                                                                                    
-                                                                                                    
-                                                                                                    
-                                                                                                    
-                                                                                                    
-#=select  type=search  ↑↓=navigate  Esc=back  Ctrl+C=quit  Ctrl+R=refresh                           
+╭────────────────────────────────────────────────────────────────────────╮
+│ LaunchLine / Development tools                                         │
+│ Select a tool to launch.                                               │
+╰────────────────────────────────────────────────────────────────────────╯
+ ~\AppData\Local\Temp\LL-R-_4lmgjnc\projects\my-app
+────────────────────────────────────────────────────────────────────────────────
+❯  (Git version)
+────────────────────────────────────────────────────────────────────────────────
+  ▸ 1  Git version     Installed Git version
+    2  Python version  Installed Python version
+    3  Run tests       Project test suite
+    4  Back            Return to parent menu
+    0  Exit            Close the launcher
+
+
+
+
+
+
+
+
+#=select  type=search  ↑↓=navigate  Esc=back  Ctrl+C=quit  Ctrl+R=refresh

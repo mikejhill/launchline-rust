@@ -1,0 +1,22 @@
+╭────────────────────────────────────────────────────────────────────────╮
+│ LaunchLine                                                             │
+│ Select a tool to launch.                                               │
+╰────────────────────────────────────────────────────────────────────────╯
+ ~\AppData\Local\Temp\LL-R-_4lmgjnc\projects\my-app
+────────────────────────────────────────────────────────────────────────────────
+❯ po (PowerShell)
+────────────────────────────────────────────────────────────────────────────────
+  ▸ 2  PowerShell          PowerShell 7
+    3  Python              Python 3.13 REPL
+    8  Projects            Generated on first visit
+    1  GitHub Copilot CLI  AI-powered CLI assistant
+
+
+
+
+
+
+
+
+
+#=select  type=search  ↑↓=navigate  Esc=back  Ctrl+C=quit  Ctrl+R=refresh

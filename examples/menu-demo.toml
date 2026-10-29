@@ -1,5 +1,35 @@
 [settings]
-title = "LaunchLine menus"
+title = "LaunchLine"
+
+[[entries]]
+name = "GitHub Copilot CLI"
+command = "ghcs"
+description = "AI-powered CLI assistant"
+
+[[entries]]
+name = "PowerShell"
+command = "pwsh"
+description = "PowerShell 7"
+
+[[entries]]
+name = "Python"
+command = "python"
+description = "Python 3.13 REPL"
+
+[[entries]]
+name = "Node.js"
+command = "node"
+description = "Node.js REPL"
+
+[[entries]]
+name = "Docker Desktop"
+command = "docker"
+description = "Manage containers"
+
+[[entries]]
+name = "Git Bash"
+command = "bash"
+description = "Git for Windows shell"
 
 [[entries]]
 name = "Development"
@@ -10,6 +40,19 @@ title = "Development tools"
 name = "Git version"
 command = "git"
 args = ["--version"]
+description = "Installed Git version"
+
+[[entries.menu.entries]]
+name = "Python version"
+command = "python"
+args = ["--version"]
+description = "Installed Python version"
+
+[[entries.menu.entries]]
+name = "Run tests"
+command = "python"
+args = ["-m", "pytest"]
+description = "Project test suite"
 
 [[entries]]
 id = "projects"

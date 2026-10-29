@@ -11,7 +11,7 @@ A lightweight terminal launcher for interactive CLI tools. Define your frequentl
 used commands in a TOML config file, then pick them from a fuzzy-searchable menu
 instead of remembering flags and paths.
 
-![LaunchLine Rust: root, static submenu and dynamic provider](docs/images/menus.gif)
+![LaunchLine Rust: colored launcher, fuzzy search and keyboard navigation](docs/images/launcher.gif)
 
 Captured from the Rust application in its own isolated terminal.
 [Capture procedure and raw output](docs/images/captures/README.md).
@@ -36,9 +36,15 @@ instead.
   on first run if no config exists
 - **Cross-platform** — source builds validated on Windows x64, Linux x64 and macOS ARM64
 
-| Static submenu | Dynamic provider |
-| :---: | :---: |
-| ![Development submenu](docs/images/nested.png) | ![Generated project tools](docs/images/dynamic.png) |
+### Nested and generated menus
+
+![Static submenu, Back navigation and generated project tools](docs/images/menus.gif)
+
+[Static submenu](docs/images/nested.png) · [Dynamic provider](docs/images/dynamic.png) ·
+[Visual comparison and capture evidence](docs/images/captures/visual-review.md)
+
+Images open at full resolution; each animation uses a single column to retain
+readability on narrower screens.
 
 ## Installation
 

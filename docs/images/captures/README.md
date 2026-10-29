@@ -1,31 +1,40 @@
 # Rust runtime captures
 
-The README's menus.gif, nested.png and dynamic.png were captured independently
-from this repository's actual Rust application. The program ran in an owned
-100-column by 24-row Windows ConPTY; no desktop input, clipboard or hooks were
-used. The same public fixture is used by both runtimes, but neither runtime's
-output is substituted for the other's.
+The README's launcher.gif and menus.gif were captured independently from this
+repository's actual Rust application in an owned 80-column by 22-row Windows
+ConPTY. No desktop input, clipboard or hooks were used. Both runtimes use the
+same fixture and pixel renderer, but each launches its own executable and records
+its own raw output. Matching pixels reflect their shared UI contract, not capture
+substitution.
 
-From this repository root on Windows, reproduce with:
+The renderer in `tools/terminal_render.py` is extracted from the original Python
+[`tools/generate_screenshots.py`](https://github.com/mikejhill/launchline/blob/main/tools/generate_screenshots.py):
+CGA ANSI palette, black background, Cascadia Mono 15px, 20px line height,
+foreground/background/reverse/bold cells, blue borders, green active entries and
+the original terminal chrome. No UI strings or menu state are painted separately
+from captured output. The original generator and historical assets remain intact.
+
+From the repository root on Windows:
 
 ```powershell
 cargo build --locked
-uv run --no-project --python 3.12 --with pywinpty==3.1.0 --with pyte==0.8.2 --with Pillow==13.0.0 python tools/capture_menus.py --runtime Rust --executable target/debug/launchline.exe
+uv run --with pywinpty --with pyte --with pillow python tools/capture_menus.py --runtime Rust --executable target/debug/launchline.exe
 ```
 
-The provider requires Python on PATH; the capture script adds its own interpreter
-directory for the disposable child environment. The provider prints deterministic
-JSON and no leaf command is selected. Input opens Development, returns with a
-separate Escape event, opens Projects (running the real provider), then exits.
+The script removes NO_COLOR and configures an ANSI-capable terminal only for
+the child. It copies the committed examples into a disposable home/projects/my-app
+fixture, so the displayed working directory is real and short. The original six
+tools remain visible alongside Development and Projects. No leaf command is run.
+Input exercises incremental fuzzy search, backspace, arrow navigation, static
+submenu, Escape/Back, the real provider, Ctrl+R refresh and Exit. Provider JSON is
+produced by the actual provider subprocess.
 
-Each `.ansi` file is the cumulative raw terminal output at that checkpoint;
-each `.txt` is its decoded terminal screen. `manifest.json` records the source
-commit, runtime executable SHA-256, actual command, dependency versions and raw
-output hashes. The source commit precedes these documentation-only edits.
+Each `.ansi` file contains cumulative raw output at that checkpoint; `.txt`
+contains decoded terminal cells with trailing blank padding omitted. `manifest.json` records source commit, actual
+runtime command and executable hash, capture script/renderer/fixture hashes,
+dependencies, input and image/raw-output hashes. The recorded source commit
+precedes these documentation edits; application sources were checked unchanged.
 
-PNG/GIF images paint the actual decoded terminal text with Cascadia Mono, using
-a uniform foreground/background for readability; ANSI colors are omitted.
-No UI strings or menu state are drawn independently of the captured output.
-This is terminal/render evidence on Windows, not physical keyboard, screen reader
-or other-platform validation. The older demo.gif/search.png/navigate.png assets
-are historical and are no longer presented by the README.
+Read the [pixel and animation review](visual-review.md), including original,
+regressed and restored comparisons and narrow-screen previews. These are Windows
+terminal/render captures, not physical-keyboard or other-platform validation.
