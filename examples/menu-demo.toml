@@ -1,0 +1,24 @@
+[settings]
+title = "LaunchLine menus"
+
+[[entries]]
+name = "Development"
+description = "Static submenu"
+[entries.menu]
+title = "Development tools"
+[[entries.menu.entries]]
+name = "Git version"
+command = "git"
+args = ["--version"]
+
+[[entries]]
+id = "projects"
+name = "Projects"
+description = "Generated on first visit"
+[entries.menu]
+title = "Project tools"
+refresh_on_return = true
+[entries.menu.provider]
+command = "python"
+args = ["examples/menu_provider.py"]
+timeout_seconds = 10

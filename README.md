@@ -11,7 +11,10 @@ A lightweight terminal launcher for interactive CLI tools. Define your frequentl
 used commands in a TOML config file, then pick them from a fuzzy-searchable menu
 instead of remembering flags and paths.
 
-![LaunchLine demo](docs/images/demo.gif)
+![LaunchLine Rust: root, static submenu and dynamic provider](docs/images/menus.gif)
+
+Captured from the Rust application in its own isolated terminal.
+[Capture procedure and raw output](docs/images/captures/README.md).
 
 ## Why
 
@@ -22,7 +25,8 @@ instead.
 
 ## Features
 
-- **Fuzzy search** — type any substring to narrow the list instantly
+- **Nested and dynamic menus** - organize tools into submenus or generate them on demand
+- **Fuzzy search** — type matching characters to narrow the list instantly
 - **Numbered shortcuts** — press a digit to launch directly
 - **Per-entry environment and working directory** — set once, forget forever
 - **Auto-restart or exit** — configurable behavior after a tool exits
@@ -30,11 +34,11 @@ instead.
 - **Single binary** — no runtime dependencies, nothing extra to install
 - **Auto-generated starter config** — creates `~/.config/launchline/config.toml`
   on first run if no config exists
-- **Cross-platform** — pre-built binaries for Windows, macOS, and Linux (x64 & ARM64)
+- **Cross-platform** — source builds validated on Windows x64, Linux x64 and macOS ARM64
 
-|           Fuzzy search            |         Arrow-key navigation          |
-| :-------------------------------: | :-----------------------------------: |
-| ![Search](docs/images/search.png) | ![Navigate](docs/images/navigate.png) |
+| Static submenu | Dynamic provider |
+| :---: | :---: |
+| ![Development submenu](docs/images/nested.png) | ![Generated project tools](docs/images/dynamic.png) |
 
 ## Installation
 
@@ -88,7 +92,7 @@ Resolution order: `--config` flag > `LAUNCHLINE_CONFIG` env var > default path.
 ## Configuration Reference
 
 Config file format is [TOML](https://toml.io). The file has an optional
-`[settings]` table and one or more `[[entries]]` tables.
+`[settings]` table and either nonempty `[[entries]]` or a root `[provider]`.
 
 ### `[settings]`
 
@@ -101,23 +105,28 @@ Config file format is [TOML](https://toml.io). The file has an optional
 | `ghost_text`      | bool   | `true`         | Show the highlighted entry name as an autocomplete hint on prompt |
 | `numeric_trigger` | bool   | `true`         | Pressing a digit immediately launches the matching entry          |
 
+`refresh_on_return` (boolean, default `false`) in `[settings]` refreshes a
+dynamic root when returning from a child menu.
+
 ### `[[entries]]`
 
-Each `[[entries]]` table defines one launchable tool:
+Each `[[entries]]` table defines a command or a submenu:
 
 | Key                 | Type            | Required | Default | Description                                                    |
 | ------------------- | --------------- | -------- | ------- | -------------------------------------------------------------- |
 | `name`              | string          | yes      | —       | Display name shown in the menu                                 |
-| `command`           | string          | yes      | —       | Executable to run                                              |
+| `command`           | string          | leaf only | —       | Executable to run                                              |
 | `args`              | list of strings | no       | `[]`    | Arguments passed to the command                                |
 | `description`       | string          | no       | `""`    | Short description shown next to the name                       |
 | `working_directory` | string          | no       | —       | Working directory for the subprocess                           |
 | `env`               | table           | no       | `{}`    | Extra environment variables (`KEY = "value"`)                  |
+| `id`                | string          | no       | `""`    | Stable per-menu identity for refreshed selection |
+| `menu`              | table           | no       | -       | Submenu declaration, exclusive with command fields |
 
 ### Validation Rules
 
-- At least one `[[entries]]` table is required.
-- Every entry must have both `name` and `command`.
+- A root requires nonempty `[[entries]]` or a `[provider]` declaration.
+- Every entry needs `name` and either `command` or `menu`.
 - `on_exit` must be `"restart"` or `"exit"`.
 - `args` must be a list (not a bare string).
 - `env` must be a TOML table (not a string or list).
@@ -152,6 +161,64 @@ args = ["-NoProfile"]
 env = { TERM = "xterm-256color" }
 ```
 
+### Nested and dynamic menus
+
+Run the checked-in example from the repository root:
+
+```sh
+launchline --config examples/menu-demo.toml
+```
+
+The provider example uses `python`; set its `command` to your Python executable
+if needed. Both implementations accept this same configuration:
+
+```toml
+[settings]
+title = "LaunchLine menus"
+
+[[entries]]
+name = "Development"
+description = "Static submenu"
+[entries.menu]
+title = "Development tools"
+[[entries.menu.entries]]
+name = "Git version"
+command = "git"
+args = ["--version"]
+
+[[entries]]
+id = "projects"
+name = "Projects"
+description = "Generated on first visit"
+[entries.menu]
+title = "Project tools"
+refresh_on_return = true
+[entries.menu.provider]
+command = "python"
+args = ["examples/menu_provider.py"]
+timeout_seconds = 10
+```
+
+The [example provider](examples/menu_provider.py) prints UTF-8 JSON such as:
+
+```json
+{"entries":[{"id":"git","name":"Git status","command":"git","args":["status"]}]}
+```
+
+Providers run only when their menu is first opened or refreshed. `Ctrl+R` or the
+Refresh/Retry row regenerates the current dynamic menu. `refresh_on_return`
+refreshes that menu when returning from a child submenu, not from a command.
+Back preserves the parent query and selection. `Escape` clears a query first,
+then returns to the parent (or exits at root); `0` exits the whole launcher.
+
+A submenu entry cannot also declare `command`, `args`, `env` or
+`working_directory`. Each menu has either `entries` or `provider`. For a dynamic
+root, replace the root entries with `[provider]` using the same fields.
+Providers are trusted executables, invoked with literal argv and closed stdin;
+`--check-config` validates declarations without running them. See the
+[full contract](docs/menus.md) for provider environment/working directory,
+timeouts, caching, limits and failure/retry behavior.
+
 ## Usage
 
 | Key           | Action                                    |
@@ -161,7 +228,8 @@ env = { TERM = "xterm-256color" }
 | Type any text | Fuzzy-filter the entry list               |
 | `Up` / `Down` | Move highlight                            |
 | `Enter`       | Launch highlighted entry                  |
-| `Escape`      | Clear filter (or exit if filter is empty) |
+| `Escape`      | Clear filter, then Back (exit at root)     |
+| `Ctrl+R`      | Refresh the current dynamic menu           |
 | `Backspace`   | Delete last character from filter         |
 | `Ctrl+U`      | Clear filter                              |
 
@@ -186,7 +254,7 @@ Set it as the default profile to see the launcher every time you open a terminal
 
 ## Development
 
-Requires [Rust](https://rustup.rs/) 1.85 or later.
+Requires the pinned [Rust](https://rustup.rs/) 1.99.1 toolchain.
 
 ```sh
 cargo build            # debug build
@@ -224,3 +292,17 @@ results](docs/validation/report.md), and [release readiness](docs/releasing.md).
 Nested menus and optional dynamic providers are described in the
 [menu lifecycle and provider contract](docs/menus.md), including Back navigation,
 refresh policies, caching, limits and error/retry behavior.
+
+### `[provider]`
+
+The same table is accepted under `entries.menu.provider`. See the
+[menu lifecycle and provider contract](docs/menus.md) for nesting, caching,
+refresh/back behavior, limits, errors and examples.
+
+| Field               | Type         | Default   | Description                          |
+| ------------------- | ------------ | --------- | ------------------------------------ |
+| `command`           | string       | required  | Explicit trusted provider executable |
+| `args`              | string array | `[]`      | Literal argv                         |
+| `env`               | string table | `{}`      | Environment overlay                  |
+| `working_directory` | string       | inherited | Provider working directory           |
+| `timeout_seconds`   | integer      | `10`      | Deadline from 1 to 300 seconds       |

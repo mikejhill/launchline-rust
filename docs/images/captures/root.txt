@@ -1,0 +1,24 @@
+╭────────────────────────────────────────────────────────────────────────╮                          
+│ LaunchLine menus                                                       │                          
+│ Select a tool to launch.                                               │                          
+╰────────────────────────────────────────────────────────────────────────╯                          
+ ~\Projects\_meta\scratch\codex\2026-10-28\task-2\launchline-rust                                   
+────────────────────────────────────────────────────────────────────────────────────────────────────
+❯  (Development)                                                                                    
+────────────────────────────────────────────────────────────────────────────────────────────────────
+  ▸ 1  Development  Static submenu                                                                  
+    2  Projects     Generated on first visit                                                        
+    0  Exit         Close the launcher                                                              
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+                                                                                                    
+#=select  type=search  ↑↓=navigate  Esc=back  Ctrl+C=quit  Ctrl+R=refresh                           
