@@ -24,7 +24,7 @@ class ReleaseCI:
         "id": 41898282,
         "type": "Bot",
     }
-    CI_SHA256 = "bf9b4a730d261a63d8522c7cf63735d6f9d059a06d68e6f387b20fd06de0e32c"
+    CI_SHA256 = "714c5ffef4754e91465a059d050c77e706159fcc4a13782c01c45a0e2a8883bc"
     FILES: ClassVar[set[str]] = {
         "Cargo.toml",
         "Cargo.lock",

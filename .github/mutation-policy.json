@@ -1,0 +1,111 @@
+{
+  "schema": 1,
+  "language": "rust",
+  "required_score": 100,
+  "threshold_basis": "Preserves the existing harness assertion that every seeded mutant is killed.",
+  "environment": {
+    "os": "windows-latest",
+    "python": "3.13",
+    "rust": "1.99.1"
+  },
+  "suites": [
+    {
+      "name": "baseline",
+      "script": "scripts/mutation_check.py",
+      "report": "docs/validation/mutation.json",
+      "population": [
+        {
+          "source": "src/fuzzy.rs",
+          "mutant": "base-score"
+        },
+        {
+          "source": "src/fuzzy.rs",
+          "mutant": "adjacency"
+        },
+        {
+          "source": "src/fuzzy.rs",
+          "mutant": "word-boundary"
+        },
+        {
+          "source": "src/fuzzy.rs",
+          "mutant": "case-fold"
+        },
+        {
+          "source": "src/fuzzy.rs",
+          "mutant": "no-match"
+        },
+        {
+          "source": "src/config.rs",
+          "mutant": "required-name"
+        },
+        {
+          "source": "src/config.rs",
+          "mutant": "exit-policy"
+        },
+        {
+          "source": "src/config.rs",
+          "mutant": "exit-visible-default"
+        },
+        {
+          "source": "src/config.rs",
+          "mutant": "directory-kind"
+        },
+        {
+          "source": "src/runner.rs",
+          "mutant": "environment-overlay"
+        },
+        {
+          "source": "src/ui.rs",
+          "mutant": "unicode-cursor"
+        },
+        {
+          "source": "src/ui.rs",
+          "mutant": "numeric-setting"
+        }
+      ]
+    },
+    {
+      "name": "menus",
+      "script": "scripts/mutate_menus.py",
+      "report": "docs/validation/menu-mutation.json",
+      "population": [
+        {
+          "source": "src/menus.rs",
+          "mutant": "cache-reuse"
+        },
+        {
+          "source": "src/menus.rs",
+          "mutant": "return-refresh"
+        },
+        {
+          "source": "src/menus.rs",
+          "mutant": "retain-snapshot"
+        },
+        {
+          "source": "src/menus.rs",
+          "mutant": "changed-child"
+        },
+        {
+          "source": "src/menus.rs",
+          "mutant": "cache-budget"
+        },
+        {
+          "source": "src/config.rs",
+          "mutant": "nesting-limit"
+        },
+        {
+          "source": "src/config.rs",
+          "mutant": "unique-ids"
+        },
+        {
+          "source": "src/providers.rs",
+          "mutant": "output-limit"
+        },
+        {
+          "source": "src/providers.rs",
+          "mutant": "deadline"
+        }
+      ]
+    }
+  ]
+}
