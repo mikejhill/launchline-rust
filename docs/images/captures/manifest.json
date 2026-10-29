@@ -1,22 +1,29 @@
 {
   "runtime": "Rust",
   "exit_status": 0,
-  "source_commit": "f39d4c6132669f962ac58bb08b93c9299acc5f18",
+  "source_commit": "a7ff57b6462aea7374c7aa0e88ef3d29cf0a0594",
   "command": [
     "C:\\Users\\Mike\\Projects\\_meta\\scratch\\codex\\2026-10-28\\task-2\\launchline-rust\\target\\debug\\launchline.exe",
     "--config",
     "examples/menu-demo.toml"
   ],
-  "executable_sha256": "0bd8a07a7889b09d9061bfb684956dfc43ba3c7a169dcda51538130a76124c09",
+  "executable_sha256": "1dea249420b7b640d91c05c804207e0eea5a20c0354795f6d2cd5df4ad09dd53",
   "terminal": "Windows ConPTY via pywinpty",
   "dimensions": [
-    100,
-    24
+    80,
+    22
   ],
+  "fixture": "Disposable home/projects/my-app with committed example config/provider copied unchanged",
   "input": [
-    "1 (static submenu)",
+    "type p",
+    "type o",
+    "type w",
+    "Backspace x3",
+    "Down x3",
+    "7 (Development submenu)",
     "Escape (Back)",
-    "2 (provider)",
+    "8 (Projects provider)",
+    "Ctrl+R (Refresh provider)",
     "0 (Exit)"
   ],
   "capture_python": "3.12.13 (main, Mar 20 2026, 00:36:00) [MSC v.1944 64 bit (AMD64)]",
@@ -25,15 +32,47 @@
     "pyte": "0.8.2",
     "Pillow": "13.0.0"
   },
-  "rendering": "Actual terminal text cells, monochrome; ANSI colors omitted",
+  "rendering": "Original generate_screenshots.py CGA palette, Cascadia Mono 15px, ANSI foreground/background/reverse/bold and terminal chrome; all terminal content from this runtime",
+  "capture_sources": {
+    "examples/menu-demo.toml": "f043bbfa2e515fbcf5bd3eb2501a6ccb1481eca1bdcc455bda66c2a70ef1661c",
+    "examples/menu_provider.py": "59cb82cb9147ef1b241caebb9c49f0b1b4ea46bc6914017411f3a5a256260a8f",
+    "tools/capture_menus.py": "fbd2e1fec5cca6ba407af63ce15936d0116f30fcbd9b2e2e668a93674949a117",
+    "tools/terminal_render.py": "f5f3a7932e3d1403b2624148ea398d2266242840f6a1ede57e75cfbe811cea13"
+  },
   "files": {
-    "dynamic.ansi": "0a15c2ea2953edd4b5e5fb728c7784ffb99de229f1fa1acfc32bc3eb077d8101",
-    "dynamic.txt": "a849776d7359c0c6c9b6e5a1cd788dbc2ac61405b505b7d64e6235b3014ff619",
-    "nested.ansi": "d51697c540721dbd85d197a648baa136a587b8f6a3343e7ff79f3db2c3fca13f",
-    "nested.txt": "ed09ad7171fc1d3e83c870d9540ec8636dd50fc262d69c7096363f0d9cbb0b32",
-    "returned.ansi": "8ed45ba284ca73d9f1a017409d4ee3a5f73ff991fce360fe8382b4e490774668",
-    "returned.txt": "b0aab1a38a969ac8a00cd434ed3aafb567bca3384962ddb0aa2ad07f214bca92",
-    "root.ansi": "65cc02930a907510445a56fa7153cee9ecaabc123e725236f6aae27fb710afa8",
-    "root.txt": "b0aab1a38a969ac8a00cd434ed3aafb567bca3384962ddb0aa2ad07f214bca92"
+    "cleared.ansi": "a3d1c52c7dab0fd3684e1997d10d6b4ef2d9644708065c41a1c05224badd6f96",
+    "cleared.txt": "16406eb3ac18138134bbcd423ba4361ebc65d6e526b34d5f2c57544af97bc1f5",
+    "dynamic.ansi": "8bfb749a97677407316c94efc15d58b21c2a924335c1ffa1ca58e368983e8b04",
+    "dynamic.txt": "7bca830c150fd02593e190cc73bd3405751e2686f973d283d7fb4b2db149ab27",
+    "navigation.ansi": "99505c51659fdbd003a5630bed5730d0a33e83bd0b27423e72faea1601cba03e",
+    "navigation.txt": "cd1f59e83d29a4f8844000dfafcde7154e37a4e2e5869484c9a374ebd9c5830b",
+    "nested.ansi": "f5c4a22464fcb035f51fabef12d1cbe629f8fd2fd68cd8f2506f2db6fbe4aa2f",
+    "nested.txt": "c05bf24549392267c370388f8a7d0b6a48b5134795813d4f1c4c75a36259d614",
+    "refreshed.ansi": "b24aa15148a6ec5e2ee7e413e512bd53af78cd37560661fb688bd0d00f247631",
+    "refreshed.txt": "7bca830c150fd02593e190cc73bd3405751e2686f973d283d7fb4b2db149ab27",
+    "returned.ansi": "e66e39ccbee91183b74578d330aa5d68ccaf5074f7450cfe8aafc0cea268bdec",
+    "returned.txt": "cd1f59e83d29a4f8844000dfafcde7154e37a4e2e5869484c9a374ebd9c5830b",
+    "root.ansi": "e15af839351c6aa74c647f6db973fc555dded4ff3d4b222639d1f712efa55fec",
+    "root.txt": "16406eb3ac18138134bbcd423ba4361ebc65d6e526b34d5f2c57544af97bc1f5",
+    "search-p.ansi": "791afba18e45b40d4d5d0900694621b666f13f0dd45c161e29c29ec2fa8d9816",
+    "search-p.txt": "695ffe693be9f4e559bd28703e5dc564ab970a15707527810bc268cba53c0a79",
+    "search-po.ansi": "a62697736417381d11705b8485eb5df15b50cc2ed5a9a3c810e2ae5aaf9bf478",
+    "search-po.txt": "7beb33f0d31aa925368825cb98222b564a1ec8067f1c93cc9b7cec4794bf1516",
+    "search-pow.ansi": "f0d84390209e33bde9fe337217c6812d9acaa189cabb3a4c4cea330db3de3237",
+    "search-pow.txt": "4fb74060e42d963fa1c80784630fae55e9e33873400a1ab5e516a964945b4ffb"
+  },
+  "assets": {
+    "cleared.png": "4cf18b2f6fe174a59f908ddefa1a747257a6c351a40fcc1f843bc6845c687846",
+    "dynamic.png": "60c06106f78a9cb5b084a64c2648b6b5de5cf799a6fd42850986b3f819e54ce8",
+    "launcher.gif": "f377523b890266fd12c2f14f74b39afda0cc885603218a9b12d9beebd690714f",
+    "menus.gif": "5338ff7b78056d09395abaaf042c64c45fae8451de26fe5ff2c9bfb1555ef560",
+    "navigation.png": "e16dff26ce90d01b8de60fe566c9a1359f7edb11c81a6fc65b9daa3299fa268c",
+    "nested.png": "889c163d32d900f7eb024d0ae7985c3a7ad70968d53954d4e97e75e71819670d",
+    "refreshed.png": "60c06106f78a9cb5b084a64c2648b6b5de5cf799a6fd42850986b3f819e54ce8",
+    "returned.png": "e16dff26ce90d01b8de60fe566c9a1359f7edb11c81a6fc65b9daa3299fa268c",
+    "root.png": "4cf18b2f6fe174a59f908ddefa1a747257a6c351a40fcc1f843bc6845c687846",
+    "search-p.png": "84161b24237d37711e4f9985c715adc48bc951d72b5640a510d43ce2120911bd",
+    "search-po.png": "9d4e0ae738ffef3e7eb9248dbb48a5248bc3f0e1876b8cfbb9cf8cbcd2eab3da",
+    "search-pow.png": "658577c2c9466a4cba068e8fae825d396efbebf949368fab1c09f1d8baf1591f"
   }
 }

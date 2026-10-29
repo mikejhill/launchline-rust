@@ -1,0 +1,57 @@
+{
+  "runtime": "Rust",
+  "baseline_commit": "a7ff57b6462aea7374c7aa0e88ef3d29cf0a0594",
+  "animations": {
+    "demo.gif": {
+      "size": [
+        688,
+        468
+      ],
+      "frames": 10,
+      "durations_ms": [
+        1200,
+        250,
+        250,
+        250,
+        250,
+        250,
+        600,
+        400,
+        400,
+        1500
+      ],
+      "total_ms": 5350
+    },
+    "launcher.gif": {
+      "size": [
+        760,
+        508
+      ],
+      "frames": 6,
+      "durations_ms": [
+        1600,
+        350,
+        350,
+        1200,
+        650,
+        1600
+      ],
+      "total_ms": 5750
+    },
+    "menus.gif": {
+      "size": [
+        760,
+        508
+      ],
+      "frames": 4,
+      "durations_ms": [
+        1600,
+        2200,
+        800,
+        3400
+      ],
+      "total_ms": 8000
+    }
+  },
+  "original_demo_sha256": "4c48549737c7c3aa3f17c4214a43332d24e580e8cbb019742ec53cf48c44d03c"
+}

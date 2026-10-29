@@ -1,0 +1,22 @@
+╭────────────────────────────────────────────────────────────────────────╮
+│ LaunchLine                                                             │
+│ Select a tool to launch.                                               │
+╰────────────────────────────────────────────────────────────────────────╯
+ ~\AppData\Local\Temp\LL-R-_4lmgjnc\projects\my-app
+────────────────────────────────────────────────────────────────────────────────
+❯  (Node.js)
+────────────────────────────────────────────────────────────────────────────────
+    1  GitHub Copilot CLI  AI-powered CLI assistant
+    2  PowerShell          PowerShell 7
+    3  Python              Python 3.13 REPL
+  ▸ 4  Node.js             Node.js REPL
+    5  Docker Desktop      Manage containers
+    6  Git Bash            Git for Windows shell
+    7  Development         Static submenu
+    8  Projects            Generated on first visit
+    0  Exit                Close the launcher
+
+
+
+
+#=select  type=search  ↑↓=navigate  Esc=back  Ctrl+C=quit  Ctrl+R=refresh
