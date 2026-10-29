@@ -77,3 +77,6 @@ release-changelog.md
 /crate-release/
 
 **/__pycache__/
+
+# Owned asynchronous campaign output
+mutation-results/

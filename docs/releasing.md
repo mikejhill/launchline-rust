@@ -83,3 +83,9 @@ standard-library helper without source checkout under release-write credentials.
 Independently verify a crate with gh attestation verify, the repository and exact
 source digest; compare SHA256SUMS with crates.io. This follows VerdiClip's reviewed
 release-PR and distribution pattern, retaining Rust's registry and failure order.
+
+## Independent mutation campaigns
+
+Mutation execution is asynchronous and is not a PR/release dependency.
+All other source, package, provenance and registry checks remain intact.
+See [mutation policy and durable alerts](mutation-testing.md).

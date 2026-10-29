@@ -255,6 +255,9 @@ Set it as the default profile to see the launcher every time you open a terminal
 
 ## Development
 
+Mutation campaigns run asynchronously on the default branch. See
+[mutation policy, results and durable alerts](docs/mutation-testing.md).
+
 Requires the pinned [Rust](https://rustup.rs/) 1.99.1 toolchain.
 
 ```sh
