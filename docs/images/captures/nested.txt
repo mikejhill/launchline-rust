@@ -2,15 +2,15 @@
 │ LaunchLine / Development tools                                         │
 │ Select a tool to launch.                                               │
 ╰────────────────────────────────────────────────────────────────────────╯
- ~\AppData\Local\Temp\LL-R-_4lmgjnc\projects\my-app
+ ~\AppData\Local\Temp\LL-R-mye1rxw5\projects\my-app
 ────────────────────────────────────────────────────────────────────────────────
 ❯  (Git version)
 ────────────────────────────────────────────────────────────────────────────────
   ▸ 1  Git version     Installed Git version
     2  Python version  Installed Python version
     3  Run tests       Project test suite
-    4  Back            Return to parent menu
-    0  Exit            Close the launcher
+    0  Back            Return to parent menu
+
 
 
 

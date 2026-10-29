@@ -2,15 +2,15 @@
 │ LaunchLine / Project tools                                             │
 │ Select a tool to launch.                                               │
 ╰────────────────────────────────────────────────────────────────────────╯
- ~\AppData\Local\Temp\LL-R-_4lmgjnc\projects\my-app
+ ~\AppData\Local\Temp\LL-R-mye1rxw5\projects\my-app
 ────────────────────────────────────────────────────────────────────────────────
 ❯  (Git status)
 ────────────────────────────────────────────────────────────────────────────────
   ▸ 1  Git status    Inspect the current repository
     2  Git history   Recent commits
     3  Refresh menu  Regenerate this menu (Ctrl+R)
-    4  Back          Return to parent menu
-    0  Exit          Close the launcher
+    0  Back          Return to parent menu
+
 
 
 

@@ -106,6 +106,15 @@ class TerminalSession:
             except queue.Empty:
                 assert time.monotonic() < deadline, self.output
             assert time.monotonic() < deadline, self.output
+        # Process termination can precede the reader's final ConPTY output chunk.
+        # Preserve the real terminal-restoration bytes before closing its stream.
+        while True:
+            try:
+                self.output += self._messages.get(timeout=0.1)
+            except queue.Empty:
+                if self.output.count("\x1b[?1049h") == self.output.count("\x1b[?1049l"):
+                    break
+                assert time.monotonic() < deadline, self.output
         self._process.close()
         return self._process.exitstatus
 
@@ -623,7 +632,7 @@ class TestSubmenuZeroWorkflows:
                 session.write("0")
             else:
                 # At root the same key remains ordinary input when Exit is hidden.
-                self._move(session, "0", "Zero root")
+                self._move(session, "0\x15", "Zero root")
                 session.write("\x03")
             assert session.exited() == 0, session.output
             assert session.output.count("\x1b[?1049h") == session.output.count(

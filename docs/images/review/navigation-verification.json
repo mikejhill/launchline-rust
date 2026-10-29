@@ -1,0 +1,22 @@
+{
+  "runtime": "Rust",
+  "source_commit": "d08d70462dcb0073e93dbd55c61b72b902ef57dd",
+  "exit_status": 0,
+  "manifest_hashes_exact": true,
+  "raw_replay_pixel_exact": [
+    "cleared",
+    "dynamic",
+    "navigation",
+    "nested",
+    "provider-returned",
+    "refreshed",
+    "returned",
+    "root",
+    "search-p",
+    "search-po",
+    "search-pow"
+  ],
+  "submenu_zero": "Back",
+  "root_zero": "Exit",
+  "historical_assets_and_renderer_preserved": true
+}

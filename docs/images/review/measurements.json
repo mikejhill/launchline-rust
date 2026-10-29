@@ -43,14 +43,15 @@
         760,
         508
       ],
-      "frames": 4,
+      "frames": 5,
       "durations_ms": [
         1600,
         2200,
         800,
-        3400
+        3400,
+        1400
       ],
-      "total_ms": 8000
+      "total_ms": 9400
     }
   },
   "original_demo_sha256": "4c48549737c7c3aa3f17c4214a43332d24e580e8cbb019742ec53cf48c44d03c"
