@@ -11,6 +11,7 @@ import importlib.metadata
 import json
 import os
 import queue
+import re
 import shutil
 import subprocess
 import sys
@@ -98,9 +99,13 @@ def main() -> None:
                 raw += chunk
                 stream.feed(chunk)
             text = "\n".join(screen.display)
+            if name in {"nested", "dynamic", "refreshed"}:
+                assert re.search(r"\b0\s+Back\b", text), text
+                assert not re.search(r"\b\d+\s+Exit\b", text), text
             (evidence / f"{name}.txt").write_text(
                 "\n".join(line.rstrip() for line in screen.display) + "\n",
                 encoding="utf-8",
+                newline="\n",
             )
             (evidence / f"{name}.ansi").write_bytes(raw.encode("utf-8"))
             grid = capture_cells(screen)
@@ -131,13 +136,15 @@ def main() -> None:
             frame("navigation", "(Node.js)")
             key("7", "7 (Development submenu)")
             frame("nested", "Project test suite")
-            key("\x1b", "Escape (Back)")
+            key("0", "0 (Back from static submenu)")
             frame("returned", "Generated on first visit")
             key("8", "8 (Projects provider)")
             frame("dynamic", "Recent commits")
             key("\x12", "Ctrl+R (Refresh provider)")
             frame("refreshed", "Recent commits")
-            key("0", "0 (Exit)")
+            key("0", "0 (Back from provider submenu)")
+            frame("provider-returned", "Generated on first visit")
+            key("0", "0 (Exit at root)")
             deadline = time.monotonic() + 10
             while process.isalive() and time.monotonic() < deadline:
                 time.sleep(0.05)
@@ -162,14 +169,15 @@ def main() -> None:
         durations=[1600, 350, 350, 1200, 650, 1600],
     )
     renderer.render_gif(
-        [grids[n] for n in ["root", "nested", "returned", "dynamic", "refreshed"]],
+        [grids[n] for n in ["root", "nested", "returned", "dynamic", "refreshed", "provider-returned"]],
         images / "menus.gif",
-        durations=[1600, 2200, 800, 2200, 1200],
+        durations=[1600, 2200, 800, 2200, 1200, 1400],
     )
     manifest = {
         "runtime": args.runtime,
         "exit_status": process.exitstatus,
         "source_commit": source,
+        "comparison_baseline": "a7ff57b6462aea7374c7aa0e88ef3d29cf0a0594",
         "command": command,
         "executable_sha256": hashlib.sha256(executable.read_bytes()).hexdigest(),
         "terminal": "Windows ConPTY via pywinpty",

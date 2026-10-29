@@ -15,7 +15,7 @@ images = root / "docs/images"
 out = images / "review"
 out.mkdir(exist_ok=True)
 manifest = json.loads((images / "captures/manifest.json").read_text())
-base = manifest["source_commit"]
+base = manifest.get("comparison_baseline", manifest["source_commit"])
 
 
 def old(name):

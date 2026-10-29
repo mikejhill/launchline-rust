@@ -22,7 +22,7 @@ const BOLD: &str = "\x1b[1m";
 const WHITE: &str = "\x1b[97m"; // Bright white
 const RESET: &str = "\x1b[0m";
 
-/// A numbered entry for display (1-based index, 0 for exit).
+/// A numbered entry for display (1-based index, 0 for Back or Exit).
 #[derive(Clone)]
 struct NumberedEntry<'a> {
     number: usize,
@@ -63,6 +63,7 @@ pub struct MenuChoice {
 pub struct LaunchLineUI<'a> {
     config: &'a LaunchLineConfig,
     navigation: bool,
+    submenu: bool,
     intent: MenuIntent,
     all_entries: Vec<NumberedEntry<'a>>,
     exit_entry: EntryConfig,
@@ -97,6 +98,7 @@ impl<'a> LaunchLineUI<'a> {
         Self {
             config,
             navigation: false,
+            submenu: false,
             intent: MenuIntent::Exit,
             all_entries,
             exit_entry: exit_entry_config(),
@@ -109,6 +111,25 @@ impl<'a> LaunchLineUI<'a> {
             visible,
             exit_visible: config.show_exit,
             viewport_offset: 0,
+        }
+    }
+
+    /// Reserve the zero control for Back, even when the root hides Exit.
+    pub fn submenu(config: &'a LaunchLineConfig) -> Self {
+        let mut ui = Self::new(config);
+        ui.submenu = true;
+        ui.exit_entry.name = "Back".into();
+        ui.exit_entry.description = "Return to parent menu".into();
+        ui.show_exit = true;
+        ui.exit_visible = true;
+        ui
+    }
+
+    fn zero_action(&self) -> KeyAction {
+        if self.submenu {
+            KeyAction::Back
+        } else {
+            KeyAction::Exit
         }
     }
 
@@ -309,7 +330,7 @@ impl<'a> LaunchLineUI<'a> {
                 let dl_len = self.display_list_len();
                 if dl_len > 0 && self.highlight_idx < dl_len {
                     if self.is_exit_entry(self.highlight_idx) {
-                        KeyAction::Exit
+                        self.zero_action()
                     } else {
                         let entry_idx = self.visible[self.highlight_idx];
                         KeyAction::Launch(entry_idx)
@@ -460,6 +481,10 @@ impl<'a> LaunchLineUI<'a> {
     }
 
     fn on_char(&mut self, ch: char) -> KeyAction {
+        // Zero returns exactly one level even while a submenu query is active.
+        if self.submenu && ch == '0' {
+            return KeyAction::Back;
+        }
         // "0" with no active query selects exit
         if self.query.is_empty() && ch == '0' && self.show_exit {
             return KeyAction::Exit;
@@ -2209,6 +2234,45 @@ mod tests {
             "Cursor should be at 1, got {}",
             ui.cursor_pos
         );
+    }
+
+    #[test]
+    fn submenu_zero_is_back_with_any_root_settings_or_query() {
+        for show_exit in [false, true] {
+            for numeric_trigger in [false, true] {
+                for query in ["", "nomatch", "1"] {
+                    let mut config = test_config(12);
+                    config.show_exit = show_exit;
+                    config.numeric_trigger = numeric_trigger;
+                    let mut ui = LaunchLineUI::submenu(&config);
+                    ui.navigation = true;
+                    assert_eq!(
+                        ui.display_entry(ui.visible.len()),
+                        ("Back", 0, "Return to parent menu")
+                    );
+                    ui.query = query.into();
+                    ui.cursor_pos = query.len();
+                    ui.update_filter();
+                    assert_eq!(ui.on_char('0'), KeyAction::Back);
+                    assert_eq!(ui.on_key(ctrl_code(KeyCode::Char('c'))), KeyAction::Exit);
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn submenu_back_row_is_keyboard_and_fuzzy_selectable() {
+        let mut config = test_config(1);
+        config.show_exit = false;
+        let mut ui = LaunchLineUI::submenu(&config);
+        assert_eq!(ui.display_list_len(), 2);
+        ui.on_key(plain(KeyCode::Up));
+        assert_eq!(ui.on_key(plain(KeyCode::Enter)), KeyAction::Back);
+        ui.query = "Back".into();
+        ui.cursor_pos = 4;
+        ui.update_filter();
+        assert_eq!(ui.display_list_len(), 1);
+        assert_eq!(ui.on_key(plain(KeyCode::Enter)), KeyAction::Back);
     }
 
     #[test]
