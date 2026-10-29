@@ -3,6 +3,13 @@
 Rust registry versions use reviewed version/changelog PRs. Earlier development
 snapshots remain in Git history; they were not the crates.io releases below.
 
+## [0.2.2](https://github.com/mikejhill/launchline-rust/compare/v0.2.1...v0.2.2) (2026-10-29)
+
+
+### Bug Fixes
+
+* reserve zero for Back in every submenu ([#10](https://github.com/mikejhill/launchline-rust/issues/10)) ([86dd4ca](https://github.com/mikejhill/launchline-rust/commit/86dd4cad21f299ad044aaf344460e45be470c977))
+
 ## [0.2.1](https://github.com/mikejhill/launchline-rust/compare/v0.2.0...v0.2.1) (2026-10-29)
 
 
