@@ -26,7 +26,7 @@ the child. It copies the committed examples into a disposable home/projects/my-a
 fixture, so the displayed working directory is real and short. The original six
 tools remain visible alongside Development and Projects. No leaf command is run.
 Input exercises incremental fuzzy search, backspace, arrow navigation, static
-submenu, Escape/Back, the real provider, Ctrl+R refresh and Exit. Provider JSON is
+submenu, zero/Back, the real provider, Ctrl+R refresh, zero/Back again and root Exit. Provider JSON is
 produced by the actual provider subprocess.
 
 Each `.ansi` file contains cumulative raw output at that checkpoint; `.txt`
@@ -38,3 +38,6 @@ precedes these documentation edits; application sources were checked unchanged.
 Read the [pixel and animation review](visual-review.md), including original,
 regressed and restored comparisons and narrow-screen previews. These are Windows
 terminal/render captures, not physical-keyboard or other-platform validation.
+
+Submenu captures show `0 Back` and no numbered Exit. Raw `.ansi` files are
+stored as binary Git data to preserve terminal newlines; decoded `.txt` uses LF.

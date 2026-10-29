@@ -299,15 +299,6 @@ pub fn run(config: LaunchLineConfig, interrupted: Arc<AtomicBool>) -> i32 {
         } else {
             None
         };
-        let back_index = if session.depth() > 1 {
-            let index = visible.entries.len();
-            visible
-                .entries
-                .push(control("Back", "Return to parent menu"));
-            Some(index)
-        } else {
-            None
-        };
         let status = if frame.error.is_some() {
             " [provider failed]"
         } else if frame.entries.is_empty() {
@@ -318,7 +309,11 @@ pub fn run(config: LaunchLineConfig, interrupted: Arc<AtomicBool>) -> i32 {
         visible.title = session.title() + status;
         let state = frame.view.clone();
         drop(frame);
-        let mut ui = LaunchLineUI::new(&visible);
+        let mut ui = if session.depth() > 1 {
+            LaunchLineUI::submenu(&visible)
+        } else {
+            LaunchLineUI::new(&visible)
+        };
         let (choice, state) = ui.choose(&state);
         session.set_view(state);
         if choice.intent == MenuIntent::Refresh
@@ -331,9 +326,7 @@ pub fn run(config: LaunchLineConfig, interrupted: Arc<AtomicBool>) -> i32 {
             }
             continue;
         }
-        if choice.intent == MenuIntent::Back
-            || choice.index.is_some_and(|index| Some(index) == back_index)
-        {
+        if choice.intent == MenuIntent::Back {
             match session.back() {
                 Ok(true) => continue,
                 Ok(false) => return 0,

@@ -15,14 +15,14 @@ images = root / "docs/images"
 out = images / "review"
 out.mkdir(exist_ok=True)
 manifest = json.loads((images / "captures/manifest.json").read_text())
-base = manifest["source_commit"]
+base = manifest.get("comparison_baseline", manifest["source_commit"])
 
 
-def old(name):
+def old(name, revision=base):
     return Image.open(
         io.BytesIO(
             subprocess.check_output(
-                ["git", "show", f"{base}:docs/images/{name}"], cwd=root
+                ["git", "show", f"{revision}:docs/images/{name}"], cwd=root
             )
         )
     ).convert("RGB")
@@ -59,6 +59,20 @@ comparison = [
 ]
 sheet(comparison, out / "comparison.png", 3, 380)
 sheet(comparison, out / "mobile.png", 3, 375)
+if "navigation_baseline" in manifest:
+    sheet(
+        [
+            item
+            for name in ["nested.png", "dynamic.png"]
+            for item in [
+                ("Previous " + name, old(name, manifest["navigation_baseline"])),
+                ("Current " + name, Image.open(images / name).convert("RGB")),
+            ]
+        ],
+        out / "submenus-before-after.png",
+        2,
+        760,
+    )
 stats = {}
 for name in ["demo.gif", "launcher.gif", "menus.gif"]:
     animation = Image.open(images / name)

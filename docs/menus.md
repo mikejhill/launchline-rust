@@ -45,9 +45,13 @@ when returning from a child menu, not when a launched tool returns to its menu.
   uses the cache unless an inactive snapshot was evicted or invalidated. `Ctrl+R` or the visible Refresh/Retry row explicitly regenerates the
   current provider. Static menus do not launch a provider on refresh.
 - `Escape` clears a nonempty query first; at an empty query it returns to parent,
-  or exits at root. Each submenu also has an accessible Back row. `Ctrl+C`, empty
-  `Ctrl+D`, and the `0`/Exit row exit the whole launcher. Providers interrupted by
-  Ctrl+C terminate with status 130. Leaf exit/restart policy remains global.
+  or exits at root. At every submenu depth, `0` goes Back exactly one level,
+  including during an active search and inside static or generated menus. The
+  zero row is Back even when `show_exit=false`; no positive-numbered Back or
+  numbered Exit row is added to submenus. At root, `0` remains Exit when enabled.
+  `Ctrl+C` and empty `Ctrl+D` quit from any depth with terminal restoration.
+  Providers interrupted by Ctrl+C terminate with status 130. Leaf exit/restart
+  policy remains global.
 - Query, cursor and viewport survive Back. Selection is restored by a unique
   per-menu `id`, or exact entry declaration when no id is supplied. Removed
   selections fall back to the first matching row. Stable ids are recommended for

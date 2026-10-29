@@ -14,7 +14,7 @@ the terminal to 100 columns, and replaced six tool options with two menu entries
 The restoration reuses the original pixel renderer and font/palette/spacing,
 retains all six original tools, and adds Development and Projects. Header,
 borders, bright-green selection, dim descriptions, fuzzy-query highlights,
-Back/Refresh/Exit options and the full Ctrl+R footer are visible without cropping.
+submenu Back/Refresh and root Exit options and the full Ctrl+R footer are visible without cropping.
 
 Both native runtimes ran independently in owned ConPTY fixtures. All UI content
 comes from their own ANSI output; only the original presentation renderer is
@@ -37,7 +37,7 @@ cropped options were observed.
 | --- | --- | --- | --- |
 | Original demo | 688 x 468 | 10 | 5.35 seconds |
 | Restored launcher | 760 x 508 | 6 | 5.75 seconds; 350ms typing, 1.2–1.6s reading pauses |
-| Restored menus | 760 x 508 | 4 | 8 seconds; submenu/provider reading pauses |
+| Restored menus | 760 x 508 | 5 | 9.4 seconds; includes zero/Back from both submenus |
 
 The menu capture includes a real Ctrl+R refresh; its unchanged provider output
 produces an identical final frame, which GIF encoding combines with the preceding
@@ -60,3 +60,15 @@ Rebuild the comparison sheets from the retained baseline and current captures:
 Windows terminal output; it does not claim native desktop or other-platform UI
 validation. An independent reviewer can inspect every linked frame and the raw
 captures without relying on asset hashes alone.
+
+## Zero and submenu navigation
+
+The current captures demonstrate zero returning exactly one level from both the
+static submenu and the real provider submenu. Each shows 0 Back and no numbered
+Exit; the last animation frame returns to root, where 0 Exit remains available.
+
+![Submenu controls before and after](../review/submenus-before-after.png)
+
+The CGA renderer, font, geometry, original six tools, and original demo assets
+are unchanged. The capture manifests record separate source and comparison
+baselines. Raw ANSI is retained without Git newline conversion.

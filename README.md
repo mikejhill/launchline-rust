@@ -106,7 +106,7 @@ Config file format is [TOML](https://toml.io). The file has an optional
 | ----------------- | ------ | -------------- | ----------------------------------------------------------------- |
 | `title`           | string | `"LaunchLine"` | Window/tab title shown while the launcher is active               |
 | `on_exit`         | string | `"restart"`    | Behavior after a launched tool exits: `restart` or `exit`         |
-| `show_exit`       | bool   | `true`         | Show the **Exit** entry (shortcut `0`) in the menu                |
+| `show_exit`       | bool   | `true`         | Show **Exit** (`0`) at root; submenus always show **Back** (`0`)                |
 | `clear_on_launch` | bool   | `true`         | Clear terminal before launching an entry                          |
 | `ghost_text`      | bool   | `true`         | Show the highlighted entry name as an autocomplete hint on prompt |
 | `numeric_trigger` | bool   | `true`         | Pressing a digit immediately launches the matching entry          |
@@ -215,7 +215,10 @@ Providers run only when their menu is first opened or refreshed. `Ctrl+R` or the
 Refresh/Retry row regenerates the current dynamic menu. `refresh_on_return`
 refreshes that menu when returning from a child submenu, not from a command.
 Back preserves the parent query and selection. `Escape` clears a query first,
-then returns to the parent (or exits at root); `0` exits the whole launcher.
+then returns to the parent (or exits at root). In every submenu, `0` returns
+exactly one level, even during search; no numbered row quits the launcher.
+At root, `0` remains Exit when `show_exit` is enabled. `Ctrl+C` quits immediately
+from any depth.
 
 A submenu entry cannot also declare `command`, `args`, `env` or
 `working_directory`. Each menu has either `entries` or `provider`. For a dynamic
@@ -230,7 +233,7 @@ timeouts, caching, limits and failure/retry behavior.
 | Key           | Action                                    |
 | ------------- | ----------------------------------------- |
 | `1`–`9`       | Launch entry by number                    |
-| `0`           | Exit (when `show_exit` is enabled)        |
+| `0`           | Back one level in submenus; Exit at root when enabled |
 | Type any text | Fuzzy-filter the entry list               |
 | `Up` / `Down` | Move highlight                            |
 | `Enter`       | Launch highlighted entry                  |

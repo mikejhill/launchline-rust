@@ -106,6 +106,15 @@ class TerminalSession:
             except queue.Empty:
                 assert time.monotonic() < deadline, self.output
             assert time.monotonic() < deadline, self.output
+        # Process termination can precede the reader's final ConPTY output chunk.
+        # Preserve the real terminal-restoration bytes before closing its stream.
+        while True:
+            try:
+                self.output += self._messages.get(timeout=0.1)
+            except queue.Empty:
+                if self.output.count("\x1b[?1049h") == self.output.count("\x1b[?1049l"):
+                    break
+                assert time.monotonic() < deadline, self.output
         self._process.close()
         return self._process.exitstatus
 
@@ -380,6 +389,9 @@ class TestMenuTerminalWorkflows:
             assert child.read_text(encoding="utf-8") == "1", (
                 "Stable unchanged child declaration must keep its cache"
             )
+            root_count = session.output.count("Projects2")
+            session.write("0")
+            session.wait("Projects2", count=root_count + 1)
             session.write("0")
             assert session.exited() == 0, session.output
 
@@ -400,6 +412,8 @@ class TestMenuTerminalWorkflows:
             old_count = session.output.count("Tool child1")
             session.write("\r")
             session.wait("Tool child1", count=old_count + 1)
+            session.write("0")
+            session.wait("Projects3")
             session.write("0")
             assert session.exited() == 0, session.output
 
@@ -501,6 +515,9 @@ class TestMenuTerminalWorkflows:
             assert Path(str(counter) + ".child").read_text(encoding="utf-8") == "1", (
                 "Tool return must not regenerate the submenu"
             )
+            root_count = session.output.count("Projects1")
+            session.write("0")
+            session.wait("Projects1", count=root_count + 1)
             session.write("0")
             assert session.exited() == 0, session.output
 
@@ -536,3 +553,129 @@ class TestMenuTerminalWorkflows:
                 session.wait_plain("\u276f  (", count=count + 1)
                 session.write("0")
             assert session.exited() == 0, session.output
+
+
+class TestSubmenuZeroWorkflows:
+    """Exercise zero and global interruption in real static and generated menus."""
+
+    @staticmethod
+    def _config(directory: Path, show_exit: bool, numeric_trigger: bool) -> Path:
+        """Use a real provider that generates another nested static menu."""
+        payload = {
+            "title": "Generated",
+            "entries": [
+                {
+                    "name": "Deep",
+                    "menu": {
+                        "title": "Deep",
+                        "entries": [{"name": "Unused", "command": "never-run"}],
+                    },
+                }
+            ],
+        }
+        provider = directory / "provider.py"
+        provider.write_text(
+            "print(" + repr(json.dumps(payload)) + ")", encoding="utf-8"
+        )
+        config = directory / "zero.toml"
+        config.write_text(
+            '[settings]\ntitle="Zero root"\nclear_on_launch=false\n'
+            + f"show_exit={str(show_exit).lower()}\n"
+            + f"numeric_trigger={str(numeric_trigger).lower()}\n"
+            + '[[entries]]\nname="Static"\n[entries.menu]\ntitle="Static"\n'
+            + '[[entries.menu.entries]]\nname="Generated"\n'
+            + "[entries.menu.entries.menu.provider]\ncommand="
+            + json.dumps(sys.executable)
+            + "\nargs="
+            + json.dumps([str(provider)])
+            + "\n",
+            encoding="utf-8",
+        )
+        return config
+
+    @staticmethod
+    def _move(session: TerminalSession, keys: str, title: str) -> None:
+        """Wait for the complete redraw before issuing the next input."""
+        count = session.output.count("Ctrl+C=quit")
+        session.write(keys)
+        session.wait("Ctrl+C=quit", count=count + 1)
+        session.wait_plain(title)
+
+    @staticmethod
+    def _assert_submenu_controls(session: TerminalSession) -> None:
+        """Inspect the current actual draw rather than an earlier root screen."""
+        screen = session.output.rsplit("\x1b[?1049h", 1)[-1]
+        plain = re.sub(r"\x1b\[[0-?]*[ -/]*[@-~]", "", screen)
+        assert re.search(r"\b0\s+Back\b", plain), screen
+        assert not re.search(r"\b\d+\s+Exit\b", plain), screen
+        assert not re.search(r"\b[1-9]\d*\s+Back\b", plain), screen
+
+    @pytest.mark.parametrize("show_exit", [False, True])
+    @pytest.mark.parametrize("numeric_trigger", [False, True])
+    def test_zero_returns_exactly_one_level_through_generated_menus(
+        self, tmp_path: Path, show_exit: bool, numeric_trigger: bool
+    ) -> None:
+        """Three submenu depths return one by one, including from active search."""
+        config = self._config(tmp_path, show_exit, numeric_trigger)
+        with TerminalSession(TestTerminalWorkflows._command(config)) as session:
+            session.wait("Ctrl+C=quit")
+            for title in ["Static", "Generated", "Deep"]:
+                self._move(session, "\r", " / " + title)
+                self._assert_submenu_controls(session)
+            session.write("nomatch")
+            session.wait_plain("\u276f nomatch")
+            for title in [" / Generated", " / Static", "Zero root"]:
+                self._move(session, "0", title)
+                if title != "Zero root":
+                    self._assert_submenu_controls(session)
+            if show_exit:
+                session.write("0")
+            else:
+                # At root the same key remains ordinary input when Exit is hidden.
+                self._move(session, "0\x15", "Zero root")
+                session.write("\x03")
+            assert session.exited() == 0, session.output
+            assert session.output.count("\x1b[?1049h") == session.output.count(
+                "\x1b[?1049l"
+            ), "Every terminal entry must have a matching restoration"
+
+    @pytest.mark.parametrize("failed", [False, True])
+    def test_zero_returns_from_empty_or_failed_generated_submenu(
+        self, tmp_path: Path, failed: bool
+    ) -> None:
+        """A provider error or empty snapshot must never strand users or add Exit."""
+        config = self._config(tmp_path, True, True)
+        (tmp_path / "provider.py").write_text(
+            "raise SystemExit(1)" if failed else "print('{\"entries\": []}')",
+            encoding="utf-8",
+        )
+        with TerminalSession(TestTerminalWorkflows._command(config)) as session:
+            session.wait("Ctrl+C=quit")
+            self._move(session, "\r", " / Static")
+            self._move(session, "\r", "[provider failed]" if failed else "[empty]")
+            self._assert_submenu_controls(session)
+            self._move(session, "0", " / Static")
+            self._move(session, "0", "Zero root")
+            session.write("0")
+            assert session.exited() == 0, session.output
+
+    @pytest.mark.parametrize("depth", [0, 1, 2, 3])
+    @pytest.mark.parametrize("query", ["", "nomatch"])
+    def test_ctrl_c_quits_globally_and_restores_terminal_at_every_depth(
+        self, tmp_path: Path, depth: int, query: str
+    ) -> None:
+        """Ctrl+C must terminate without requiring repeated Back operations."""
+        config = self._config(tmp_path, False, True)
+        with TerminalSession(TestTerminalWorkflows._command(config)) as session:
+            session.wait("Ctrl+C=quit")
+            for title in ["Static", "Generated", "Deep"][:depth]:
+                self._move(session, "\r", " / " + title)
+                self._assert_submenu_controls(session)
+            if query:
+                session.write(query)
+                session.wait_plain("\u276f " + query)
+            session.write("\x03")
+            assert session.exited() == 0, session.output
+            assert session.output.count("\x1b[?1049h") == session.output.count(
+                "\x1b[?1049l"
+            ), "Ctrl+C must restore the terminal from every menu depth"
