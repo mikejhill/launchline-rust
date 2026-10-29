@@ -28,6 +28,9 @@ def main() -> None:
     parser.add_argument("--executable", type=Path, required=True)
     args = parser.parse_args()
     root = Path(__file__).resolve().parents[1]
+    subprocess.run(
+        ["git", "diff", "--exit-code", "HEAD", "--", "src"], cwd=root, check=True
+    )
     executable = args.executable.resolve()
     command = [str(executable)]
     if args.runtime == "Python":
@@ -82,7 +85,9 @@ def main() -> None:
         (evidence / f"{name}.txt").write_text(text + "\n", encoding="utf-8")
         (evidence / f"{name}.ansi").write_bytes(raw.encode("utf-8"))
         # Paint the cells returned by the terminal emulator; do not invent UI text.
-        image = Image.new("RGB", (920, 500), "#10151e")
+        image = Image.new(
+            "RGB", (round(font.getlength("M") * 100) + 20, 500), "#10151e"
+        )
         draw = ImageDraw.Draw(image)
         for y, line in enumerate(screen.display):
             draw.text((10, 8 + 20 * y), line, font=font, fill="#d8e3ef")
@@ -105,6 +110,7 @@ def main() -> None:
     finally:
         process.close(force=True)
         reader.join(timeout=2)
+    assert process.exitstatus == 0, f"Application exited with {process.exitstatus}"
     frames[0].save(
         images / "menus.gif",
         save_all=True,
@@ -119,6 +125,7 @@ def main() -> None:
     ).strip()
     manifest = {
         "runtime": args.runtime,
+        "exit_status": process.exitstatus,
         "source_commit": source,
         "command": [str(executable), *command[1:]],
         "executable_sha256": hashlib.sha256(executable.read_bytes()).hexdigest(),

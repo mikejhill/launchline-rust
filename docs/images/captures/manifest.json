@@ -1,12 +1,13 @@
 {
   "runtime": "Rust",
-  "source_commit": "1af63776d44b69d35d3c32bbc25d624e123c742a",
+  "exit_status": 0,
+  "source_commit": "f39d4c6132669f962ac58bb08b93c9299acc5f18",
   "command": [
     "C:\\Users\\Mike\\Projects\\_meta\\scratch\\codex\\2026-10-28\\task-2\\launchline-rust\\target\\debug\\launchline.exe",
     "--config",
     "examples/menu-demo.toml"
   ],
-  "executable_sha256": "c2842ae971076e6a1cd7e13abf54a9149cacd06947b160f1112781066a4aa7f0",
+  "executable_sha256": "0bd8a07a7889b09d9061bfb684956dfc43ba3c7a169dcda51538130a76124c09",
   "terminal": "Windows ConPTY via pywinpty",
   "dimensions": [
     100,
