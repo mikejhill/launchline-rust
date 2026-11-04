@@ -81,7 +81,7 @@ jobs:
       run: uv run --locked --project pypi python scripts/crate_install_smoke.py
     - name: Native installed-package and policy test results
       if: always()
-      uses: mikepenz/action-junit-report@6ef3fdcfcd5f0b5d14df3e659ef19b8c6820f93d
+      uses: mikepenz/action-junit-report@8a133bfa3ecb0ea9024c1e2ae788b4c25f6cdb9d
       with:
         report_paths: junit.xml
         annotate_only: true
